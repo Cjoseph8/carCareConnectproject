@@ -28,7 +28,7 @@ const port = process.env.port
 
 mongoose.connect(process.env.DataBase)
 .then(()=>{
-    console.log('Server is connected to DATABASE Successfully..')
+    console.log('Server  is connected to DATABASE Successfully..')
     app.listen(port, ()=>{
         console.log(`Connection to PORT is Successfull...`)
     })
