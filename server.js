@@ -13,6 +13,10 @@ app.use(cors({origin: "*"}));
 
 
 app.use(express.json());
+
+app.get(`/`, (req, res)=>{
+    res.send(`Welcome to CarCare Connect!`)
+})
 // Use the user routes
 app.use('/api/v1', customerRouter);
 app.use('/api/v1', mechRouter);

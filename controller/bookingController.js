@@ -9,7 +9,7 @@ exports.bookAppointment = async (req, res) => {
     try {
         const customerId = req.user.userId
         const { mechId } = req.params;
-        const {vehicle, service, appointment, location, notes } = req.body;
+        const {brand, service, model, city, year, notes } = req.body;
         const customer = await customerModel.findById(customerId);
         if (!customer) {
             return res.status(404).json({
@@ -29,11 +29,12 @@ exports.bookAppointment = async (req, res) => {
         mechId,
         customerName:customer.fullName,
         mechName:mech.fullName,
-        vehicle,
-        service,
-        appointment,
-        notes,
-        location
+        brand, 
+        service, 
+        model, 
+        city, 
+        year, 
+        notes
         })
         await booking.save();
 
@@ -131,11 +132,12 @@ exports.getAllBooking = async(req,res)=>{
             id: booking._id,
             customer: booking.customerName,
             mechanic: booking.mechName,
-            vehicle: booking.vehicle,
+            brand: booking.brand,
             service: booking.service,
-            appointment: booking.appointment,
+            model: booking.model,
             notes: booking.note,
-            location: booking.location,
+            city: booking.city,
+            year: booking.year,
             status: booking.status
         }));
 
@@ -167,12 +169,13 @@ exports.getOneBooking = async(req,res)=>{
             id:user._id,
             customer:user.customerName,
             mechanic: user.mechName,
-            vehicle:user.vehicle,
-            service:user.service,
-            appointment:user.appointment,
-            notes:user.notes,
-            location:user.location,
-            status:user.status
+            brand: booking.brand,
+            service: booking.service,
+            model: booking.model,
+            notes: booking.note,
+            city: booking.city,
+            year: booking.year,
+            status: booking.status
         }
 
         res.status(200).json({
@@ -184,3 +187,69 @@ exports.getOneBooking = async(req,res)=>{
     }
 }
 
+
+// Helper function to calculate average rating
+const calculateAverageRating = async (mechId) => {
+    const bookings = await bookingModel.find({ mechanicId: mechId, rating: { $ne: null } });
+    if (bookings.length === 0) return 0; 
+
+    const totalRating = bookings.reduce((acc, booking) => acc + booking.rating, 0);
+    return totalRating / bookings.length;
+};
+
+exports.rateMechanic = async (req, res) => {
+    try {
+        const customerId = req.user.userId; 
+        const { bookingId } = req.params;
+        const { rating, review } = req.body;
+
+        // Validate rating
+        if (rating < 1 || rating > 5) {
+            return res.status(400).json({
+                message: 'Rating must be between 1 and 5 stars.'
+            });
+        }
+        // Find the booking
+        const booking = await bookingModel.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({
+                message: 'Booking not found.'
+            });
+        }
+        // Ensure the booking is completed
+        if (booking.status !== 'Completed') {
+            return res.status(400).json({
+                message: 'Only completed bookings can be rated.'
+            });
+        }
+        // Check if the customer is the one who made the booking
+        if (booking.customerId.toString() !== customerId.toString()) {
+            return res.status(403).json({
+                message: 'You are not authorized to rate this booking.'
+            });
+        }
+        // Update the booking with the rating and review
+        booking.rating = rating;
+        booking.review = review;
+        await booking.save();
+
+        // Update mechanic's average rating
+        const averageRating = await calculateAverageRating(booking.mechanicId);
+        const numberOfRatings = await bookingModel.countDocuments({ mechanicId: booking.mechanicId, rating: { $ne: null } });
+
+        await mechModel.findByIdAndUpdate(booking.mechanicId, {
+            averageRating,
+            numberOfRatings
+        });
+
+        res.status(200).json({
+            message: 'Rating submitted successfully.',
+            data: booking
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: 'An error occurred while processing your request.',
+            errorMessage: error.message
+        });
+    }
+};

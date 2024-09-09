@@ -105,8 +105,7 @@ const validateMech = (req, res, next) => {
 };
 
 const bookingSchema = Joi.object({
-    vehicle: Joi.object({
-      make: Joi.string()
+      brand: Joi.string()
         .min(2)
         .max(50)
         .required()
@@ -135,55 +134,44 @@ const bookingSchema = Joi.object({
           'number.min': 'Year must be at least 1900',
           'number.max': `Year must not exceed ${new Date().getFullYear()}`,
           'number.empty': 'Year is required',
-        }),
-      licensePlate: Joi.string()
-        .min(1)
-        .max(20)
-        .required()
-        .messages({
-          'string.empty': 'License plate is required',
-          'string.min': 'License plate must be at least 1 character long',
-          'string.max': 'License plate must not exceed 20 characters',
-        }),
-    }).required(),
-    
-    service: Joi.object({
-      type: Joi.string()
+        }).required(),
+     
+    service:  Joi.string()
         .valid('Oil Change', 'Tire Replacement', 'Brake Repair', 'Engine Maintenance', 'Other')
         .required()
         .messages({
           'string.empty': 'Service type is required',
           'any.only': 'Invalid service type',
         }),
-      description: Joi.string()
-        .max(500)
-        .optional()
-        .messages({
-          'string.max': 'Description must not exceed 500 characters',
-        }),
-    }).required(),
+
+        city: Joi.string(),
+        notes: Joi.string()
+          .max(300)
+          .optional()
+          .messages({
+            'string.max': 'Notes must not exceed 300 characters',
+          }),
+      // description: Joi.string()
+      //   .max(500)
+      //   .optional()
+      //   .messages({
+      //     'string.max': 'Description must not exceed 500 characters',
+      //   }),
     
-    appointment: Joi.object({
-      date: Joi.date()
-        .iso()
-        .required()
-        .messages({
-          'date.base': 'A valid date is required',
-          'date.format': 'Date must be in ISO format',
-        }),
-      time: Joi.string()
-    }).required(),
-    
-    location: Joi.string(),
+    // appointment: Joi.object({
+    //   date: Joi.date()
+    //     .iso()
+    //     .required()
+    //     .messages({
+    //       'date.base': 'A valid date is required',
+    //       'date.format': 'Date must be in ISO format',
+    //     }),
+    //   time: Joi.string()
+    // }).required(),
   
-    notes: Joi.string()
-      .max(300)
-      .optional()
-      .messages({
-        'string.max': 'Notes must not exceed 300 characters',
-      }),
+   
   
-  }).required();
+  });
 
   const validateBooking = (req, res, next) => {
     const { error } = bookingSchema.validate(req.body, { abortEarly: false });

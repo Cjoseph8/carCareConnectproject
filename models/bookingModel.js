@@ -20,26 +20,41 @@ const bookingSchema = new mongoose.Schema({
     type:String,
   },
 
-  vehicle: {
-    make: { type: String, required: true },
+
+    brand: { type: String, required: true },
     model: { type: String, required: true },
     year: { type: Number, required: true },
-   licensePlate: { type: String, required: true }
-  },
+   //licensePlate: { type: String, required: true }
+  
   service: {
     type: String
   },
-  appointment: {
-    date: { type: String, required: true },
-    time: { type: String, required: true }
-  },
-  location:{type:String, required:true},
+  
+  date: { type: String,  },
+  time: { type: String, },
+
+  city:{type:String, required:true},
   notes: { type: String },
 
   status: {
     type: String,
     enum: ['Pending', 'Accept', 'Reject'],
-    default: 'Pending'
+    default: 'Pending',
+
+  rating: {
+        type: Number,
+        min: 1,
+        max: 5,
+        required: true
+    },
+  review: {
+        type: String,
+        trim: true
+    },
+  createdAt: {
+        type: Date,
+        default: Date.now
+    }
 }
 }, { timestamps: true });
 
