@@ -393,10 +393,27 @@ exports.signIn =async(req, res)=>{
             fullName:findUser.fullName,
             email: findUser.email,userId: findUser._id }, 
             process.env.secret_key,{ expiresIn: "1d" });
-            return  res.status(200).json({message:'login successfully ',findUser,token})
+
+            const currentHour = new Date().getHours();
+        let greetingMessage;
+
+        if (currentHour >= 5 && currentHour < 12) {
+            greetingMessage = `Good morning, ${findUser.fullName}!`;
+        } else if (currentHour >= 12 && currentHour < 17) {
+            greetingMessage = `Good afternoon, ${findUser.fullName}!`;
+        } else if (currentHour >= 17 && currentHour < 21) {
+            greetingMessage = `Good evening, ${findUser.fullName}!`;
+        } else {
+            greetingMessage = `Good night, ${findUser.fullName}!`;
+        }
+        // Respond with the greeting message, user details, and token
+        return res.status(200).json({
+            message: greetingMessage,
+            user: findUser,
+            token
+        });
 
     } catch (error) {
-        
         return res.status(500).json(error.message);
     }
 }

@@ -49,7 +49,7 @@ exports.signUpUser = async (req, res) => {
         const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "1d" });
 
         // Send verification mail
-        const verificationLink = '';
+        const verificationLink =`https://carcareconnectproject.onrender.com/api/v1/mech/verifyEmail/${token}`;
         const emailSubject = 'Verification Mail';
         const html = generateWelcomeEmail(createdUser.fullName, verificationLink);
         // using nodemailer to send mail to our user
@@ -107,10 +107,7 @@ exports.verifyEmail = async (req, res) => {
         // save the changes
         await createdUser.save();
 
-        res.status(200).json({
-            message: "User verified successfully",
-            // data: createdUser,
-        })
+        res.redirect('https://car-care-g11.vercel.app/#/verifyEmail')
     
     } catch (error) {
         if (error instanceof jwt.JsonWebTokenError) {
@@ -173,35 +170,63 @@ exports.resendEmail = async (req, res) => {
 };
 
 
-exports.signIn = async (req, res)=>{
+exports.signIn = async (req, res) => {
     try {
-        //Login with email & password
-        const {email, password}= req.body
-        // Check if email exit
-        const findUser = await customerModel.findOne({email:email.toLowerCase()})
-        if(!findUser){
-            return res.status(404).json({message:'user with this email does not exist'})
+        // Extract email and password from request body
+        const { email, password } = req.body;
+
+        // Check if the email exists
+        const findUser = await customerModel.findOne({ email: email.toLowerCase() });
+        if (!findUser) {
+            return res.status(404).json({ message: 'User with this email does not exist' });
         }
-        //Check if password exit
-        const matchedPassword = await bcrypt.compare(password, findUser.password)
-       if(!matchedPassword){
-            return res.status(400).json({message:'incorrect password'})
+
+        // Check if the password matches
+        const matchedPassword = await bcrypt.compare(password, findUser.password);
+        if (!matchedPassword) {
+            return res.status(400).json({ message: 'Incorrect password' });
         }
-        if(findUser.isVerified === false){
-           return  res.status(400).json({message:'Your email is not yet verified'})
+
+        // Check if the user's email is verified
+        if (findUser.isVerified === false) {
+            return res.status(400).json({ message: 'Your email is not yet verified' });
         }
-        findUser.isLoggedIn = true
-        const token = jwt.sign({ 
-            fullName:findUser.fullName,
-            email: findUser.email,userId: findUser._id }, 
-            process.env.secret_key,{ expiresIn: "1d" });
-            return  res.status(200).json({message:'login successfully ',findUser,token})
+
+        // Mark the user as logged in
+        findUser.isLoggedIn = true;
+        await findUser.save();
+
+        // Generate a JWT token
+        const token = jwt.sign({
+            fullName: findUser.fullName,
+            email: findUser.email,
+            userId: findUser._id
+        }, process.env.secret_key, { expiresIn: '1d' });
+
+        const currentHour = new Date().getHours();
+        let greetingMessage;
+
+        if (currentHour >= 5 && currentHour < 12) {
+            greetingMessage = `Good morning, ${findUser.fullName}!`;
+        } else if (currentHour >= 12 && currentHour < 17) {
+            greetingMessage = `Good afternoon, ${findUser.fullName}!`;
+        } else if (currentHour >= 17 && currentHour < 21) {
+            greetingMessage = `Good evening, ${findUser.fullName}!`;
+        } else {
+            greetingMessage = `Good night, ${findUser.fullName}!`;
+        }
+        // Respond with the greeting message, user details, and token
+        return res.status(200).json({
+            message: greetingMessage,
+            user: findUser,
+            token
+        });
 
     } catch (error) {
-        
-        return res.status(500).json(error.message);
+        return res.status(500).json({ message: error.message });
     }
-}
+};
+
 
 exports.forgotPassword = async (req, res) => {
     try {
