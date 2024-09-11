@@ -49,7 +49,7 @@ exports.signUpUser = async (req, res) => {
         const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "1d" });
 
         // Send verification mail
-        const verificationLink =`https://carcareconnectproject.onrender.com/api/v1/mech/verifyEmail/${token}`;
+        const verificationLink =`https://carcareconnectproject.onrender.com/api/v1/verifyEmail/${token}`;
         const emailSubject = 'Verification Mail';
         const html = generateWelcomeEmail(createdUser.fullName, verificationLink);
         // using nodemailer to send mail to our user
@@ -86,7 +86,7 @@ exports.verifyEmail = async (req, res) => {
         // verify the token
         const { email } = jwt.verify(token, process.env.secret_key);
 
-        const createdUser = await customerModel.findOne({ email });
+        const createdUser = await customerModel.findOne({email});
 
         if (!createdUser) {
             return res.status(404).json({
