@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.route('/sign-up').post(validateUser, signUpUser)
 
-router.route("/verifyEmail/:token").post(verifyEmail);
+router.route("/verifyEmail/:token").get(verifyEmail);
     
 router.route("/resendEmail").post(resendEmail);
 
