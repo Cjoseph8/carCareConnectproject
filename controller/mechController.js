@@ -49,7 +49,7 @@ exports.createMech  = async (req, res) => {
         const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "1d" });
 
         // Send verification mail
-        const verificationLink = '';
+        const verificationLink =`https://carcareconnectproject.onrender.com/api/v1/mech/verifyEmail/${token}`;
         const emailSubject = 'Verification Mail';
         const html = generateWelcomeEmail(createdUser.fullName, verificationLink);
         // using nodemailer to send mail to our user
@@ -307,10 +307,7 @@ exports.verifyEmail = async(req, res)=>{
         // save the changes
         await createdUser.save();
 
-        res.status(200).json({
-            message: "User verified successfully",
-            // data: createdUser,
-        })
+        res.redirect('https://car-care-g11.vercel.app/#/verifyEmail')
     
     } catch (error) {
         if (error instanceof jwt.JsonWebTokenError) {
