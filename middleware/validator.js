@@ -58,12 +58,11 @@ const mechSchema = Joi.object({
         'string.min': 'Business address must be at least 5 characters long',
         'string.max': 'Business address cannot exceed 100 characters'
     }),
-    businessRegNumber: Joi.string().trim().pattern(/^RC\d{6,}$/).required() 
+    businessRegNumber: Joi.string().trim().pattern(/^RC\d{6,}$/) 
         .messages({
             'string.base': 'Registration number must be a string',
             'string.empty': 'Registration number is required',
             'string.pattern.base': 'Registration number must start with "RC" followed by at least 6 digits',
-            'any.required': 'Registration number is required'
         }),
 
     areaOfSpecialization: Joi.string().trim().min(5).max(500)
@@ -78,23 +77,22 @@ const mechSchema = Joi.object({
     }),
 });
 
-   
-    // // maritalStatus: Joi.string().valid('Married', 'Single', 'Other').required()
-    // .messages({
-    //     'any.only': 'Marital status must be Married, Single, or Other',
-    //     'any.required': 'Marital status is required'
-    // }),
-    // homeAddress: Joi.string().trim().min(5).max(100)
-    // .messages({
-    //     'string.empty': 'Home address is required',
-    //     'string.min': 'Home address must be at least 5 characters long',
-    //     'string.max': 'Home address cannot exceed 100 characters'
-    // }),
-
-
 // Validation middleware
 const validateMech = (req, res, next) => {
-    const { error } = mechSchema.validate(req.body, { abortEarly: false });
+  const {
+    businessName,
+    businessAddress,
+    businessRegNumber,
+    areaOfSpecialization,
+    yearsOfExperience
+  } = req.body
+    const { error } = mechSchema.validate({
+      businessName,
+      businessAddress,
+      businessRegNumber,
+      areaOfSpecialization,
+      yearsOfExperience
+    }, { abortEarly: false });
     
     if (error) {
         const errors = error.details.map(detail => detail.message);

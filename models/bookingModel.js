@@ -1,63 +1,63 @@
+const mongoose = require("mongoose");
 
-const mongoose = require('mongoose');
+const bookingSchema = new mongoose.Schema(
+  {
+    customerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+    },
+    mechanicId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Mech",
+    },
+    customerName: {
+      type: String,
+    },
 
-const bookingSchema = new mongoose.Schema({
-  customerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Customer'
-    
-  },
-  mechanicId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Mech'
-    
-  },
-  customerName:{
-    type:String,
-  },
-
-  mechName:{
-    type:String,
-  },
-
+    mechName: {
+      type: String,
+    },
 
     brand: { type: String, required: true },
     model: { type: String, required: true },
     year: { type: Number, required: true },
-   //licensePlate: { type: String, required: true }
-  
-  service: {
-    type: String
-  },
-  
-  date: { type: String,  },
-  time: { type: String, },
+    //licensePlate: { type: String, required: true }
 
-  city:{type:String, required:true},
-  notes: { type: String },
+    service: {
+      type: Array,
+      required: true,
+    },
 
-  status: {
-    type: String,
-    enum: ['Pending', 'Accept', 'Reject'],
-    default: 'Pending',
+    date: { type: String },
+    time: { type: String },
 
-  rating: {
+    city: { type: String, required: true },
+    notes: { type: String },
+
+    status: {
+      type: String,
+      enum: ["Pending", "Accept", "Reject"],
+      default: "Pending",
+
+      rating: {
         type: Number,
         min: 1,
         max: 5,
-        required: true
-    },
-  review: {
+        required: true,
+      },
+      review: {
         type: String,
-        trim: true
-    },
-  createdAt: {
+        trim: true,
+      },
+      createdAt: {
         type: Date,
-        default: Date.now
-    }
-}
-}, { timestamps: true });
+        default: Date.now,
+      },
+    },
+  },
+  { timestamps: true }
+);
 
-const bookingModel = mongoose.model('Booking', bookingSchema);
+const bookingModel = mongoose.model("Booking", bookingSchema);
 
 module.exports = bookingModel;

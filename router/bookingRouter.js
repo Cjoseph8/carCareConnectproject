@@ -2,7 +2,7 @@
 const express =require('express')
 const { validateUser } =require('../middleware/validator')
 const {pendingBooking, acceptOrReject,  bookAppointment, getOneBooking, getAllBooking, rateMechanic} = require('../controller/bookingController');
-const { authenticate, isAdmin, makeAdmin,  } = require('../middleware/authenAndAuthorize');
+const { authenticate, isAdmin, makeAdmin, authenticateMech,  } = require('../middleware/authenticate');
 
 const router = express.Router();
 

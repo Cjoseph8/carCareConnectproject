@@ -1,4 +1,5 @@
 const bookingModel =require('../models/bookingModel');
+const Notification=require('../models/notificationModel')
 const customerModel = require('../models/customerModel');
 const mechModel = require('../models/mechModel');
 const sendMailer = require("../middleware/sendMailer")
@@ -26,7 +27,7 @@ exports.bookAppointment = async (req, res) => {
         // Create an Instance of the booking
     const booking = new bookingModel({
         customerId,
-        mechId,
+        mechanicId:mechId,
         customerName:customer.fullName,
         mechName:mech.fullName,
         brand, 
@@ -34,12 +35,13 @@ exports.bookAppointment = async (req, res) => {
         model, 
         city, 
         year, 
-        notes
+        notes,
+        // status:"pending"
         })
         await booking.save();
 
          // notify the mechanic
-         const verificationLink = "link to booking details";
+         const verificationLink = "link bookings details";
          const emailSubject = 'BOOKINGS';
          const html = generateBookingEmail(mech.fullName, verificationLink);
          // using nodemailer to send mail to our user
@@ -79,25 +81,78 @@ exports.pendingBooking= async (req, res) => {
     }
 };
 
-//   accept or reject a booking
-exports.acceptOrReject= async (req, res) => {
+// //   accept or reject a booking
+// exports.acceptOrReject= async (req, res) => {
+//     try {
+//         const {bookingId} = req.params
+//         const { action } = req.body; 
+//         const mechId = req.user.userId;
+
+//         if (!bookingId || !action || (action !== 'Accept' && action !== 'Reject')) {
+//             return res.status(400).json({ message: "Invalid request" });
+//         }
+
+//         const booking = await bookingModel.findOne({$and:[{_id:bookingId},{mechanicId:mechId}]});
+
+//         if (!booking) {
+//             return res.status(404).json({ message: "Booking not found" });
+//         }
+
+//         if (booking.status === 'Accept') {
+//             return res.status(404).json({ message: "Booking already approved" });
+//         }
+
+//         if (action === 'Accept') {
+//             booking.status = 'Accept';
+//         } else {
+//             booking.status = 'Reject';
+//         }
+
+//         await booking.save();
+
+//         res.status(200).json({
+//             message: `booking ${action}`
+//         })
+//     } catch (err) {
+//         res.status(500).json({ message: err.message });
+//     }
+// };
+
+////
+
+exports.acceptOrReject = async (req, res) => {
     try {
-        const {bookingId} = req.params
-        const { action } = req.body; 
-        const mechanicId = req.user.userId;
+        const { bookingId } = req.params;
+        const { action } = req.body;
+        const mechId = req.user.userId;
 
         if (!bookingId || !action || (action !== 'Accept' && action !== 'Reject')) {
             return res.status(400).json({ message: "Invalid request" });
         }
 
-        const booking = await bookingModel.findById(bookingId);
+        const booking = await bookingModel.findOne({ $and: [{ _id: bookingId }, { mechanicId: mechId }] });
 
         if (!booking) {
             return res.status(404).json({ message: "Booking not found" });
         }
 
+        if (booking.status === 'Accept') {
+            return res.status(404).json({ message: "Booking already accepted" });
+        }
+        let notification;
         if (action === 'Accept') {
             booking.status = 'Accept';
+            const customer = await customerModel.findById(booking.customerId);
+            if (customer) {
+                 notification = new Notification({
+                    userId: booking.customerId,
+                    title: 'Booking Accepted',
+                    message: `${booking.mechName} has accepted your booking.`,
+                    type: 'Booking Update',
+                    read: false
+                });
+                await notification.save();
+            }
         } else {
             booking.status = 'Reject';
         }
@@ -105,12 +160,14 @@ exports.acceptOrReject= async (req, res) => {
         await booking.save();
 
         res.status(200).json({
-            message: `booking ${action}`
-        })
+            message: `Booking ${action}`,
+        data:notification
+        });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 };
+
 
 // get all booking attached to a single user
 exports.getAllBooking = async(req,res)=>{
@@ -253,3 +310,15 @@ exports.rateMechanic = async (req, res) => {
         });
     }
 };
+
+
+exports.checkOutPayment = async(req,res)=>{
+    try {
+        
+    } catch (error) {
+        res.status(500).json({
+            message: 'An error occurred while processing your request.',
+            errorMessage: error.message
+        });
+    }
+}

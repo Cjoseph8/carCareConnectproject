@@ -1,5 +1,6 @@
 
-const customerModel =require('../models/customerModel')
+const customerModel =require('../models/customerModel');
+const mechModel = require('../models/mechModel')
 const jwt = require('jsonwebtoken')
 const bcrypt= require('bcryptjs')
 require('dotenv').config()
@@ -37,7 +38,7 @@ exports.signUpUser = async (req, res) => {
        // For users Requirement to fill
         const user = new customerModel({
             fullName:`${slicedName} ${slicedName2}`,
-            email:email.toLowerCase(),
+            email:email.toLowerCase().trim(),
             password: hashedPassword,
             phoneNumber,
     
@@ -48,7 +49,7 @@ exports.signUpUser = async (req, res) => {
        //using jwt to sign in    ( user identity )                                    (Your secret)            (Duration )
         const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "1d" });
 
-        // Send verification mail
+        // Send verification mail `${req.protocol}://${req.get("host")}/api/v1/users/verify/${token}`
         const verificationLink =`https://carcareconnectproject.onrender.com/api/v1/verifyEmail/${token}`;
         const emailSubject = 'Verification Mail';
         const html = generateWelcomeEmail(createdUser.fullName, verificationLink);
@@ -107,7 +108,10 @@ exports.verifyEmail = async (req, res) => {
         // save the changes
         await createdUser.save();
 
-        res.redirect('https://car-care-g11.vercel.app/#/verifyEmail')
+        res.json(200).json({
+            message:'successful',
+            data:createdUser.position
+        })
     
     } catch (error) {
         if (error instanceof jwt.JsonWebTokenError) {
@@ -145,7 +149,7 @@ exports.resendEmail = async (req, res) => {
         const token = await jwt.sign({ email }, process.env.secret_key, { expiresIn: "5m" });
 
         // Send verification mail
-        const verificationLink = '';
+        const verificationLink = `https://carcareconnectproject.onrender.com/api/v1/verifyEmail/${token}`;
         const emailSubject = 'Verification Mail';
         const html = generateWelcomeEmail(user.fullName, verificationLink);
         // using nodemailer to send mail to our user
@@ -176,7 +180,7 @@ exports.signIn = async (req, res) => {
         const { email, password } = req.body;
 
         // Check if the email exists
-        const findUser = await customerModel.findOne({ email: email.toLowerCase() });
+        const findUser = await customerModel.findOne({ email: email.toLowerCase()});
         if (!findUser) {
             return res.status(404).json({ message: 'User with this email does not exist' });
         }
@@ -200,7 +204,8 @@ exports.signIn = async (req, res) => {
         const token = jwt.sign({
             fullName: findUser.fullName,
             email: findUser.email,
-            userId: findUser._id
+            userId: findUser._id,
+            isAdmin: findUser.isAdmin
         }, process.env.secret_key, { expiresIn: '1d' });
 
         const currentHour = new Date().getHours();
@@ -258,7 +263,8 @@ exports.forgotPassword = async (req, res) => {
         await sendMailer(mailOptions);
 
         res.status(200).json({
-            message: "Password reset email sent successfully"
+            message: "Password reset email sent successfully",
+            data: resetToken
         });
     } catch (error) {
         console.error("Something went wrong", error.message);
@@ -568,3 +574,84 @@ exports.updatePicture=async(req,res)=>{
         }
     };
     
+/// Admin controllers /// //////
+exports.approveMech = async (req, res) => {
+    try {
+        const { mechId } = req.params; // Mechanic ID to approve or reject
+        const { action } = req.body;   // Action to take ('Approve' or 'Reject')
+
+        // Validate input
+        if (!mechId || !action || (action !== 'Approve' && action !== 'Reject')) {
+            return res.status(400).json({ message: "Invalid request. Action must be 'Approve' or 'Reject'." });
+        }
+
+        // Find the mechanic by ID
+        const mechanic = await mechModel.findById(mechId);
+        if (!mechanic) {
+            return res.status(404).json({ message: "Mechanic not found." });
+        }
+
+        // // Check if the mechanic is already approved or rejected
+        if (mechanic.approved == 'Approved') {
+            return res.status(400).json({ message: "Mechanic's status is already approved" });
+        }
+
+        // Update the mechanic's status based on the action
+        mechanic.approved = action === 'Approve' ? 'Approved' : 'Reject';
+
+        await mechanic.save();
+
+        res.status(200).json({
+            message: `Mechanic ${action} successfully.`,
+            data: mechanic
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'An error occurred while processing your request.', error: err.message });
+    }
+};
+
+
+exports.getAllApprovedMechs = async (req, res) => {
+    try {
+        // Fetch all mechanics from the database
+        const allMechs = await mechModel.find({ approved: 'Approved' });
+
+        // Check if any approved mechanics are found
+        if (allMechs.length === 0) {
+            return res.status(404).json({ message: "No approved mechanics found." });
+        }
+
+        // Respond with the list of approved mechanics
+        res.status(200).json({
+            message: 'List of approved mechanics:',
+            data: allMechs
+        });
+    } catch (err) {
+        // Handle any errors that occur
+        res.status(500).json({
+            message: 'An error occurred while retrieving approved mechanics.',
+            error: err.message
+        });
+    }
+};
+
+exports.makeAdmin = async (req, res) => {
+    try {
+      const { email } = req.body;
+      const findUser = await customerModel.findOne({ email });
+      if (!findUser) {
+        return res.status(404).json({ message: " user not found" });
+      }
+      const updateUserRole = await customerModel.findOneAndUpdate(
+        { email },
+        { isAdmin: true },
+        { new: true, runvalidators: true }
+      );
+      return res.status(200).json({ message: "you are now an admin", data: updatedUserRole.isAdmin });
+    } catch (error) {
+      res.status(500).json({
+        message: error.message,
+      });
+    }
+  };
+  

@@ -4,8 +4,9 @@ const { validateMech, validateUser} =require('../middleware/validator');
 const{createMech,verifyEmail,resendEmail,signIn,forgotPassword,resetPassword,changePassword,
     signOut,getOneMech,getAllMech,deleteMech,
     completeProfile,uploadDocument,changeProfilePix
-} = require('../controller/mechController')
-const { authenticateMech, isAdmin, makeAdmin,  } = require('../middleware/authenAndAuthorize');
+} = require('../controller/mechController');
+const { isAdmin, makeAdmin, authenticate,  } = require('../middleware/authenticate');
+const { uploadMultiple } = require('../middleware/multer');
 const router = express.Router();
 
 
@@ -22,19 +23,18 @@ router.route("/mech/forgotPassword").post(forgotPassword);
 
 router.route("/mech/resetPassword").post(resetPassword);
 
-router.route("/mech/changePassword/:token").post(authenticateMech, changePassword);
+router.route("/mech/changePassword/:token").post(authenticate, changePassword);
 
-router.post('/mech/signout/', authenticateMech, signOut);
+router.post('/mech/signout/', authenticate, signOut);
 
-router.get('/oneMech/:mechId', authenticateMech,  getOneMech);
+router.get('/oneMech/:mechId', authenticate,  getOneMech);
 
-router.post('/mech/completeProfile', validateMech, authenticateMech, completeProfile);
-router.post('/mech/uploadDocument', authenticateMech,  uploadDocument);
-router.get('/mech/changeProfilePix', authenticateMech,  changeProfilePix);
+router.post('/mech/completeProfile', validateMech, authenticate, uploadMultiple, completeProfile);
+// router.post('/mech/uploadDocument', authenticateMech, uploadMultiple, uploadDocument);
+router.get('/mech/changeProfilePix', authenticate,  changeProfilePix);
 
-router.post("/mech/makeAdmin",authenticateMech, makeAdmin);
-router.get('/allMech', authenticateMech, isAdmin, getAllMech);
-router.delete('/deleteMech/:mechId', authenticateMech, isAdmin, deleteMech);
+// router.post("/mech/makeAdmin",authenticate);
+
 
 
 module.exports= router;

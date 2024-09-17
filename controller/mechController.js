@@ -37,18 +37,17 @@ exports.createMech  = async (req, res) => {
        // For users Requirement to fill
         const user = new mechModel({
             fullName:`${slicedName} ${slicedName2}`,
-            email:email.toLowerCase(),
+            email:email.toLowerCase().trim(),
             password: hashedPassword,
             phoneNumber,
     
         });
         // save the above
         const createdUser = await user.save();
-
        //using jwt to sign in    ( user identity )                                    (Your secret)            (Duration )
         const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "1d" });
 
-        // Send verification mail
+        // Send verification mail ;
         const verificationLink =`https://carcareconnectproject.onrender.com/api/v1/mech/verifyEmail/${token}`;
         const emailSubject = 'Verification Mail';
         const html = generateWelcomeEmail(createdUser.fullName, verificationLink);
@@ -93,15 +92,62 @@ exports.completeProfile = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        const { profilePicture, identification, certification, insurance } = req.files; 
+
+        if (!profilePicture || profilePicture.length === 0) {
+            return res.status(400).json({ message: "Profile picture is required" });
+        }
+        if (!identification || identification.length === 0) {
+            return res.status(400).json({ message: "Identification is required" });
+        }
+        if (!certification || certification.length === 0) {
+            return res.status(400).json({ message: "Certification is required" });
+        }
+
+        // Prepare upload promises for Cloudinary
+        const uploadPromises = [
+            cloudinary.uploader.upload(profilePicture[0].path, { folder: "users_dp/profile_pictures" }),
+            cloudinary.uploader.upload(identification[0].path, { folder: "users_dp/identifications" }),
+            cloudinary.uploader.upload(certification[0].path, { folder: "users_dp/certifications" })
+        ];
+
+        if (insurance && insurance.length > 0) {
+            uploadPromises.push(cloudinary.uploader.upload(insurance[0].path, { folder: "users_dp/insurance" }));
+        }
+
+        const [profilePictureResult, identificationResult, certificationResult, insuranceResult] = await Promise.all(uploadPromises);
+
+        // Prepare update fields
+        const updateFields = {
+            profilePicture: {
+                pictureId: profilePictureResult.public_id,
+                pictureUrl: profilePictureResult.secure_url
+            },
+            Identification: {
+                fileId: identificationResult.public_id,
+                fileUrl: identificationResult.secure_url
+            },
+            certification: {
+                fileId: certificationResult.public_id,
+                fileUrl: certificationResult.secure_url
+            },
+            insurance: insuranceResult ? {
+                fileId: insuranceResult.public_id,
+                fileUrl: insuranceResult.secure_url
+            } : null
+        };
+
         // Update user profile with the provided details
         const updatedUser = await mechModel.findByIdAndUpdate(
             userId,
             {
+                ...updateFields,
                 businessName,
                 businessAddress,
                 areaOfSpecialization,
                 yearsOfExperience,
-                businessRegNumber
+                businessRegNumber,
+                isProfileComplete: true
             },
             { new: true }
         );
@@ -110,8 +156,26 @@ exports.completeProfile = async (req, res) => {
             return res.status(400).json({ message: 'Failed to update profile' });
         }
 
-        user.isProfileComplete = true
-        await user.save()
+         // Clean up local files
+         const cleanupFiles = [
+            profilePicture[0].path,
+            identification[0].path,
+            certification[0].path
+        ];
+
+        if (insurance && insurance.length > 0) {
+            cleanupFiles.push(insurance[0].path);
+        }
+
+        cleanupFiles.forEach(filePath => {
+            fs.unlink(filePath, (err) => {
+                if (err) {
+                    console.error("Failed to delete file", filePath, err);
+                } else {
+                    console.log("Successfully deleted file", filePath);
+                }
+            });
+        });
 
         return res.status(200).json({
             message: 'Profile updated successfully',
@@ -129,74 +193,100 @@ exports.completeProfile = async (req, res) => {
 };
 
 
-exports.uploadDocument = async (req, res) => {
-    try {
-        const profilePictureFile = req.files['profilePicture']; 
-        const businessLicenseFile = req.files['businessLicense']; 
-        const certificationFile = req.files['certification']; 
+// exports.uploadDocument = async (req, res) => {
+//     try {
+//         const userId = req.user.userId;
 
-        if (!profilePictureFile || !businessLicenseFile || !certificationFile) {
-            return res.status(400).json({ message: "Please upload all required files" });
-        }
+//         if (!userId) {
+//             return res.status(400).json({ message: "Login to continue" });
+//         }
 
-        // Upload files to Cloudinary
-        const profilePictureResult = await cloudinary.uploader.upload(profilePictureFile[0].path, { folder: "users_dp/profile_pictures" });
-        const businessLicenseResult = await cloudinary.uploader.upload(businessLicenseFile[0].path, { folder: "users_dp/business_licenses" });
-        const certificationResult = await cloudinary.uploader.upload(certificationFile[0].path, { folder: "users_dp/certifications" });
+//         const { profilePicture, identification, certification, insurance } = req.files; 
 
-        const userId = req.user.userId;
+//         if (!profilePicture || profilePicture.length === 0) {
+//             return res.status(400).json({ message: "Profile picture is required" });
+//         }
+//         if (!identification || identification.length === 0) {
+//             return res.status(400).json({ message: "Identification is required" });
+//         }
+//         if (!certification || certification.length === 0) {
+//             return res.status(400).json({ message: "Certification is required" });
+//         }
 
-        if (!userId) {
-            return res.status(400).json({ message: "Login to continue" });
-        }
+//         // Prepare upload promises for Cloudinary
+//         const uploadPromises = [
+//             cloudinary.uploader.upload(profilePicture[0].path, { folder: "users_dp/profile_pictures" }),
+//             cloudinary.uploader.upload(identification[0].path, { folder: "users_dp/identifications" }),
+//             cloudinary.uploader.upload(certification[0].path, { folder: "users_dp/certifications" })
+//         ];
 
-        const updateFields = {
-            profilePicture: {
-                pictureId: profilePictureResult.public_id,
-                pictureUrl: profilePictureResult.secure_url
-            },
-            businessLicense: {
-                fileId: businessLicenseResult.public_id,
-                fileUrl: businessLicenseResult.secure_url
-            },
-            certification: {
-                fileId: certificationResult.public_id,
-                fileUrl: certificationResult.secure_url
-            }
-        };
+//         if (insurance && insurance.length > 0) {
+//             uploadPromises.push(cloudinary.uploader.upload(insurance[0].path, { folder: "users_dp/insurance" }));
+//         }
 
-        // Clean up local files
-        const cleanupFiles = [profilePictureFile[0].path, businessLicenseFile[0].path, certificationFile[0].path];
-        cleanupFiles.forEach(filePath => {
-            fs.unlink(filePath, (err) => {
-                if (err) {
-                    console.log("Failed to delete file", filePath, err);
-                } else {
-                    console.log("Successfully deleted file", filePath);
-                }
-            });
-        });
+//         const [profilePictureResult, identificationResult, certificationResult, insuranceResult] = await Promise.all(uploadPromises);
 
-        // Update the user's profile with the Cloudinary URLs
-        const updatedUser = await mechModel.findByIdAndUpdate(userId, updateFields, { new: true });
+//         // Prepare update fields
+//         const updateFields = {
+//             profilePicture: {
+//                 pictureId: profilePictureResult.public_id,
+//                 pictureUrl: profilePictureResult.secure_url
+//             },
+//             Identification: {
+//                 fileId: identificationResult.public_id,
+//                 fileUrl: identificationResult.secure_url
+//             },
+//             certification: {
+//                 fileId: certificationResult.public_id,
+//                 fileUrl: certificationResult.secure_url
+//             },
+//             insurance: insuranceResult ? {
+//                 fileId: insuranceResult.public_id,
+//                 fileUrl: insuranceResult.secure_url
+//             } : null
+//         };
 
-        if (!updatedUser) {
-            return res.status(404).json({ message: "User not found" });
-        }
+//         // Update the user's profile with the Cloudinary URLs
+//         const updatedUser = await mechModel.findByIdAndUpdate(userId, updateFields, { new: true });
 
-        return res.status(200).json({
-            message: 'Profile pictures and documents uploaded successfully',
-            user: updatedUser
-        });
+//         if (!updatedUser) {
+//             return res.status(404).json({ message: "User not found" });
+//         }
 
-    } catch (err) {
-        console.error('Error during upload:', err);
-        return res.status(500).json({
-            message: 'An error occurred during upload',
-            error: err.message
-        });
-    }
-};
+//         // Clean up local files
+//         const cleanupFiles = [
+//             profilePicture[0].path,
+//             identification[0].path,
+//             certification[0].path
+//         ];
+
+//         if (insurance && insurance.length > 0) {
+//             cleanupFiles.push(insurance[0].path);
+//         }
+
+//         cleanupFiles.forEach(filePath => {
+//             fs.unlink(filePath, (err) => {
+//                 if (err) {
+//                     console.error("Failed to delete file", filePath, err);
+//                 } else {
+//                     console.log("Successfully deleted file", filePath);
+//                 }
+//             });
+//         });
+
+//         return res.status(200).json({
+//             message: 'Profile pictures and documents uploaded successfully',
+//             user: updatedUser
+//         });
+
+//     } catch (err) {
+//         console.error('Error during upload:', err);
+//         return res.status(500).json({
+//             message: 'An error occurred during upload',
+//             error: err.message
+//         });
+//     }
+// };
 
  //Change profile picture
  exports.changeProfilePix = async (req, res) => {
@@ -276,7 +366,6 @@ exports.uploadDocument = async (req, res) => {
 exports.verifyEmail = async(req, res)=>{
     try {
         const {token} = req.params;
-
         if (!token) {
             return res.status(404).json({
                 error: "Token not found"
@@ -284,30 +373,33 @@ exports.verifyEmail = async(req, res)=>{
         }
 
         // verify the token
-        const {email} = jwt.verify(token, process.env.secret_key);
-        
-        const createdUser = await mechModel.findOne({ email:email.toLowerCase() });
+        const { email } = jwt.verify(token, process.env.secret_key);
+        const mechanic = await mechModel.findOne({ email: email.toLowerCase().trim() });
        
-        if (!createdUser) {
+        if (!mechanic) {
             return res.status(404).json({
                 error: "User not found"
             });
         }
 
         // Check if user has already been verified
-        if (createdUser.isVerified) {
+        if (mechanic.isVerified) {
             return res.status(400).json({
                 error: "User already verified"
             });
         }
 
+        
         // update the user verification
-        createdUser.isVerified = true;
+        mechanic.isVerified = true;
 
         // save the changes
-        await createdUser.save();
+        await mechanic.save();
 
-        res.redirect('https://car-care-g11.vercel.app/#/verifyEmail')
+        res.json(200).json({
+            message:'successful',
+            data:mechanic.position
+        })
     
     } catch (error) {
         if (error instanceof jwt.JsonWebTokenError) {
@@ -348,7 +440,7 @@ exports.resendEmail = async (req, res) => {
         const mailOptions = {
             email: user.email,
             subject: "Email Verification",
-            html: `Please click on the link to verify your email: <a href="com/api/verify-email/${token}">Verify Email</a>`,
+            html: `Please click on the link to verify your email: <a href="carcareconnectproject.onrender.com/api/v1/mech/resendEmail/${token}>ResendEmail</a>`,
         };
 
         await sendMailer(mailOptions);
@@ -615,9 +707,19 @@ exports.signOut = async (req, res) => {
 exports.getAllMech = async(req, res)=>{
     try{
     const allMech = await mechModel.find().sort({created:-1});
+    // allMech.forEach(mech => console.log(mech.approved));
+    // return all the approved mech
+    const approvedMech = allMech.filter(mech => mech.approved === true )
+    // console.log(approvedMech)
+    if(!approvedMech || approvedMech.length === 0){
+        return res.status(404).json({
+            message:"No approved mechanics"
+        })
+    }
+
     res.status(200).json({
         message:'Total List of all Mechanics in Data Base are:',
-         data: allMech
+         data: approvedMech
 
     })
     }catch (error) {
@@ -631,6 +733,11 @@ exports.getOneMech = async (req, res) => {
     try {
         const { mechId} =req.params;
         const mech = await mechModel.findById(mechId);
+        if(mech.approved){
+            return res.status(400).json({
+                message:"mechanic not approved"
+            })
+        }
         res.status(200).json({
             message: `Mechanic's details found`,
             data: mech

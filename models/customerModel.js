@@ -1,40 +1,37 @@
+const mongoose = require("mongoose");
 
-const mongoose =require("mongoose")
+const customerSchema = new mongoose.Schema(
+  {
+    fullName: { type: String, required: true },
 
-const customerSchema = new mongoose.Schema({
+    email: { type: String, required: true, unique: true },
 
-    fullName:{type:String, required:true},
+    phoneNumber: { type: String, required: true },
 
-    email:{type:String, required:true, unique:true},
+    position: { type: String, default: "customer" },
 
-    phoneNumber:{type:String, required:true},
+    blackList: { type: Array, default: [] },
 
-    blackList:{type:Array, default: []},
+    password: { type: String, required: true },
 
-    password:{type:String, required:true},
-
-    // gender:{type:String, enum:['Male', 'Female'] ,required:true},
-
-    profilePicture:{
-        pictureId:String,
-        pictureUrl:String,
-       
-    
+    profilePicture: {
+      pictureId: String,
+      pictureUrl: String,
     },
 
-    isVerified:{
-        type: Boolean,
-        default:false
+    isVerified: {
+      type: Boolean,
+      default: false,
     },
-    
-    isAdmin:{
-        type:Boolean,
-        default:false
-    },  
-    
 
-}, {timestamps:true});
+    isAdmin: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { timestamps: true }
+);
 
-const customerModel = mongoose.model('customer',customerSchema)
+const customerModel = mongoose.model("customer", customerSchema);
 
 module.exports = customerModel;
