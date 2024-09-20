@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const customerRouter= require('./router/customerRouter');
 const mechRouter = require('./router/mechRouter')
 const bookingRouter =require('./router/bookingRouter')
+const keepServerAlive= require('./middleware/keepServerAlive')
 const express = require("express");
 const cors = require('cors')
 
@@ -13,6 +14,12 @@ app.use(cors({origin: "*"}));
 
 
 app.use(express.json());
+
+
+
+app.get('/1', (req, res) => {
+    res.send('Server is alive!');
+});
 
 app.get(`/`, (req, res)=>{
     res.send(`Welcome to CarCare Connect!`)
@@ -28,6 +35,9 @@ const port = process.env.port
 
 mongoose.connect(process.env.DataBase)
 .then(()=>{
+    keepServerAlive();
+
+
     console.log('Server  is connected to DATABASE Successfully..')
     app.listen(port, ()=>{
         console.log(`Connection to PORT is Successfull...`)
