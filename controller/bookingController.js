@@ -1,3 +1,5 @@
+
+require('dotenv').config();
 const bookingModel =require('../models/bookingModel');
 const Notification=require('../models/notificationModel')
 const customerModel = require('../models/customerModel');
@@ -6,66 +8,239 @@ const sendMailer = require("../middleware/sendMailer")
 const {generateBookingEmail} = require('../middleware/html')
 
         
+// Wallet  functions 
+// async function updateWallet(userId, isMechanic, amount, type, description) {
+//     try {
+//         const Model = isMechanic ? mechModel : customerModel;
+//         const walletUser = await Model.findById(userId);
+
+//         if (!walletUser) throw new Error('User not found');
+
+//         // Update the balance based on the transaction type
+//         if (type === 'credit') {
+//             walletUser.wallet += amount;
+//         } else if (type === 'debit') {
+//             if (walletUser.wallet < amount) throw new Error('Insufficient balance');
+//             walletUser.wallet -= amount;
+//         } else {
+//             throw new Error('Invalid transaction type');
+//         }
+//         // Log the transaction (optional)
+//         if (!walletUser.wallet.transactions) {
+//             walletUser.wallet.transactions = [];
+//         }
+//         walletUser.wallet.transactions.push({ amount, type, description });
+//         await walletUser.save();
+//     } catch (error) {
+//         console.error('Error updating wallet:', error);
+//         throw error;
+//     }
+// };
+// //cash back function
+// async function processCashback(mechanicId) {
+//     try {
+//         // Fetch the mechanic and their completed bookings
+//         const mechanic = await mechModel.findById(mechanicId);
+//         if (!mechanic) throw new Error('Mechanic not found');
+
+//         // Count the number of completed services
+//         const completedServicesCount = await bookingModel.countDocuments({
+//             mechanicId,
+//             status: 'Completed'
+//         });
+
+//         // Check if the mechanic is eligible for cashback
+//         if (completedServicesCount > 0 && completedServicesCount % 5 === 0) {
+//             const cashbackAmount = 10; // Define cashback amount
+
+//             // Credit the cashback to the mechanic's wallet
+//             mechanic.wallet += cashbackAmount;
+//             await mechanic.save();
+
+//             console.log(`Cashback of ${cashbackAmount} credited to mechanic ${mechanic.fullName}'s wallet.`);
+//             return {
+//                 message: `Cashback of ${cashbackAmount} credited successfully.`,
+//                 balance: mechanic.wallet
+//             };
+//         } else {
+//             return {
+//                 message: 'No cashback eligible at this time.',
+//                 completedServicesCount
+//             };
+//         }
+//     } catch (error) {
+//         console.error('Error processing cashback:', error);
+//         throw error;
+//     }
+// };
+
+
 exports.bookAppointment = async (req, res) => {
     try {
-        const customerId = req.user.userId
+        const customerId = req.user.userId;
         const { mechId } = req.params;
-        const {brand, service, model, city, year, notes } = req.body;
+        const { brand, service, model, city, year, notes } = req.body;
+
+        // Find the customer
         const customer = await customerModel.findById(customerId);
         if (!customer) {
-            return res.status(404).json({
-                message: 'customer not found'
-            })
-        };
-        const mech = await mechModel.findById(mechId)
+            return res.status(404).json({ message: 'Customer not found' });
+        }
+
+        // Find the mechanic
+        const mech = await mechModel.findById(mechId);
         if (!mech) {
-            return res.status(404).json({
-                message: 'mechanic not found'
-            })
+            return res.status(404).json({ message: 'Mechanic not found' });
+        }
+
+        // Check for existing bookings
+        const existingBooking = await bookingModel.findOne({
+            customerId,
+            mechanicId: mechId,
+            $or: [
+                { status: 'Accept' },
+                { status: 'Pending' }
+            ]
+        });
+
+        const now = new Date();
+
+        if (existingBooking) {
+            const bookingTime = new Date(existingBooking.createdAt);
+            const timeDiff = (now - bookingTime) / (1000 * 60); // Time difference in minutes
+
+            if (existingBooking.status === 'Accept') {
+                // Allow booking only if 3 hours have passed
+                if (timeDiff < 180) {
+                    return res.status(400).json({
+                        message: 'You cannot book again until 3 hours have passed since your last accepted appointment. Please be patient.'
+                    });
+                }
+            } else if (existingBooking.status === 'Pending') {
+                // Allow booking only if 30 minutes have passed
+                if (timeDiff < 30) {
+                    return res.status(400).json({
+                        message: 'You cannot book again until 30 minutes have passed since your last pending appointment.'
+                    });
+                }
+            }
+        }
+
+        // Create a new booking instance
+        const booking = new bookingModel({
+            customerId,
+            mechanicId: mechId,
+            customerName: customer.fullName,
+            mechName: mech.fullName,
+            brand,
+            service,
+            model,
+            city,
+            year,
+            notes,
+            status: 'Pending'
+        });
+
+        // Save the booking
+        const savedBooking = await booking.save();
+
+        // Notify the mechanic
+        const verificationLink = "link to booking details"; 
+        const emailSubject = 'New Booking Request';
+        const html = generateBookingEmail(mech.fullName, verificationLink);
+
+        // Prepare email options
+        const mailOptions = {
+            from: process.env.mailUser,
+            to: mech.email,
+            subject: emailSubject,
+            html: html
         };
 
-        // Create an Instance of the booking
-    const booking = new bookingModel({
-        customerId,
-        mechanicId:mechId,
-        customerName:customer.fullName,
-        mechName:mech.fullName,
-        brand, 
-        service, 
-        model, 
-        city, 
-        year, 
-        notes,
-        // status:"pending"
-        })
-        await booking.save();
+        // Send email to the mechanic
+        await sendMailer(mailOptions);
 
-         // notify the mechanic
-         const verificationLink = "link bookings details";
-         const emailSubject = 'BOOKINGS';
-         const html = generateBookingEmail(mech.fullName, verificationLink);
-         // using nodemailer to send mail to our user
-         const mailOptions = {
-             from: process.env.mailUser,
-             to: mech.email, // Use the user's email address here
-             subject: emailSubject,
-             html: html
-         };
- 
-         await sendMailer(mailOptions);
+        // Create a notification for the mechanic
+        const notification = new Notification({
+            userId: mech._id,
+            title: 'New Booking Request',
+            message: `You have a new booking request from ${customer.fullName} for ${service.join(', ')} service.`,
+            type: 'Booking Request',
+            read: false
+        });
+        
+        await notification.save();
 
         res.status(201).json({
-            message: `You have Successfully Booked an Appointment with ${booking.mechName}, please hold on for his responds. `,
+            message: `You have successfully booked an appointment with ${savedBooking.mechName}. Please hold on for their response.`,
+            data: savedBooking
+        });
+
+    } catch (error) {
+        console.error('Error booking appointment:', error); 
+        res.status(500).json({
+            message: 'An error occurred while booking the appointment.',
+            error: error.message 
+        });
+    }
+};
+
+
+exports.completeServiceAndProcessPayment = async (req, res) => {
+    try {
+        const { bookingId, paymentAmount } = req.body;
+        const booking = await bookingModel.findById(bookingId);
+
+        if (!booking) {
+            return res.status(404).json({
+                message: 'Booking not found'
+            });
+        }
+
+        // Ensure the service is completed
+        if (booking.statusCompleted !== 'Completed') {
+            return res.status(400).json({
+                message: 'Service must be completed before processing payment.'
+            });
+        }
+
+        const customer = await customerModel.findById(booking.customerId);
+        if (!customer || customer.wallet < paymentAmount) {
+            return res.status(400).json({
+                message: 'Insufficient wallet balance to process payment.'
+            });
+        }
+
+        // Calculate the admin fee
+        const adminFee = paymentAmount * 0.05; // 5% deduction
+        const mechanicPayment = paymentAmount - adminFee; // Amount to pay the mechanic
+
+        // Update wallets
+        await updateWallet(customer._id, false, paymentAmount, 'debit', 'Payment for completed service');
+        await updateWallet(booking.mechanicId, true, mechanicPayment, 'credit', 'Payment received for completed service');
+        
+        // Update admin wallet directly from the customer model
+        await customerModel.findByIdAndUpdate(process.env.ADMIN_ACCOUNT_ID, {
+            $inc: { wallet: adminFee } // Increment admin's wallet by admin fee
+        });
+
+        // Call the cashback function
+        const cashbackResponse = await processCashback(booking.mechanicId);
+
+        res.status(200).json({
+            message: 'Service completed, payment processed, and cashback applied if eligible.',
+            cashback: cashbackResponse,
             data: booking
         });
 
     } catch (error) {
         res.status(500).json({
             message: error.message
-        })
+        });
     }
-}
-    
+};
+
+
 
 exports.pendingBooking= async (req, res) => {
     try {
@@ -81,44 +256,7 @@ exports.pendingBooking= async (req, res) => {
     }
 };
 
-// //   accept or reject a booking
-// exports.acceptOrReject= async (req, res) => {
-//     try {
-//         const {bookingId} = req.params
-//         const { action } = req.body; 
-//         const mechId = req.user.userId;
 
-//         if (!bookingId || !action || (action !== 'Accept' && action !== 'Reject')) {
-//             return res.status(400).json({ message: "Invalid request" });
-//         }
-
-//         const booking = await bookingModel.findOne({$and:[{_id:bookingId},{mechanicId:mechId}]});
-
-//         if (!booking) {
-//             return res.status(404).json({ message: "Booking not found" });
-//         }
-
-//         if (booking.status === 'Accept') {
-//             return res.status(404).json({ message: "Booking already approved" });
-//         }
-
-//         if (action === 'Accept') {
-//             booking.status = 'Accept';
-//         } else {
-//             booking.status = 'Reject';
-//         }
-
-//         await booking.save();
-
-//         res.status(200).json({
-//             message: `booking ${action}`
-//         })
-//     } catch (err) {
-//         res.status(500).json({ message: err.message });
-//     }
-// };
-
-////
 
 exports.acceptOrReject = async (req, res) => {
     try {
@@ -148,7 +286,7 @@ exports.acceptOrReject = async (req, res) => {
                     userId: booking.customerId,
                     title: 'Booking Accepted',
                     message: `${booking.mechName} has accepted your booking.`,
-                    type: 'Booking Update',
+                    type: 'Booking Request',
                     read: false
                 });
                 await notification.save();
@@ -242,7 +380,53 @@ exports.getOneBooking = async(req,res)=>{
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
-}
+};
+
+exports.completeBooking = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
+        const { serviceCharge } = req.body; 
+        const booking = await bookingModel.findById(bookingId);
+
+        if (!booking) {
+            return res.status(404).json({ message: 'Booking not found.' });
+        }
+
+        // Check if the user is authorized to complete this booking (e.g., mechanic)
+        if (booking.mechanicId.toString() !== req.user.userId) {
+            return res.status(403).json({ message: 'Not authorized to complete this booking.' });
+        }
+
+        // Update the booking status and service charge
+        booking.status = 'Completed';
+        booking.serviceCharge = serviceCharge; 
+        await booking.save();
+
+        // Create a notification for the customer
+        const notification = new Notification({
+            userId: booking.customerId, 
+            title: 'Booking Completed',
+            message: `Your booking for ${booking.service.join(', ')} has been completed. Your car is now ready for the road! Service charge: $${serviceCharge}.`,
+            type: 'Booking Request',
+            read: false
+        });
+        
+        await notification.save();
+
+        res.status(200).json({
+            message: 'Your car is now ready for the road. Service successful.',
+            data: booking
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: 'An error occurred while completing the booking.',
+            error: error.message
+        });
+    }
+};
+
+
+
 
 
 // Helper function to calculate average rating
@@ -312,13 +496,48 @@ exports.rateMechanic = async (req, res) => {
 };
 
 
-exports.checkOutPayment = async(req,res)=>{
+// Payment endpoint
+exports.koraPayment = async (req, res) => {
+    const { bookingId } = req.params;
+    const { amount } = req.body; // Amount should be passed in the request body
+
     try {
-        
+        // Find the booking
+        const booking = await bookingModel.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ message: 'Booking not found.' });
+        }
+
+        // Calculate the amounts
+        const serviceCharge = amount * 0.10; // 10% service charge
+        const mechanicPayment = amount - serviceCharge; // 90% to mechanic
+
+        // Simulate payment processing with KoraPay or Paystack here
+        // For example, you would call the Paystack API or KoraPay API
+
+        // Assuming payment is successful, update the mechanic's wallet
+        await mechModel.findByIdAndUpdate(booking.mechanicId, {
+            $inc: { 'wallet.balance': mechanicPayment }
+        });
+
+        // Update booking status or add any other logic here
+        booking.status = 'Paid'; // Update status if necessary
+        await booking.save();
+
+        res.status(200).json({
+            message: 'Payment processed successfully.',
+            data: {
+                serviceCharge,
+                mechanicPayment,
+                bookingId,
+            }
+        });
     } catch (error) {
+        console.error('Payment processing error:', error);
         res.status(500).json({
-            message: 'An error occurred while processing your request.',
-            errorMessage: error.message
+            message: 'An error occurred while processing the payment.',
+            error: error.message,
         });
     }
-}
+};
+

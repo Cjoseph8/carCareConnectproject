@@ -11,6 +11,7 @@ const {
   signOut,
   uploadpix,
   updatePicture,
+  updateUserProfile,
   getAllCustomers,
   getOneCustomer,
   deleteCustomer,
@@ -26,7 +27,7 @@ const router = express.Router();
 
 router.route("/sign-up").post(validateUser, signUpUser);
 
-router.route("/verifyEmail/:token").get(verifyEmail);
+router.route("/verifyEmail/:token").patch(verifyEmail);
 
 router.route("/resendEmail").post(resendEmail);
 
@@ -38,10 +39,10 @@ router.route("/resetPassword").post(resetPassword);
 
 router.route("/changePassword").post(authenticate, changePassword);
 
-router.post("/uploadprofilepix", authenticate, uploadSingle, uploadpix);
+router.post("/uploadProfilepix", authenticate, uploadSingle, uploadpix);
 
-router.post("/loadprofilepic", authenticate, uploadSingle, updatePicture);
-
+router.post("/updateProfilepix", authenticate, uploadSingle, updatePicture);
+router.put('/updateUserProfile', authenticate, updateUserProfile)
 router.post("/signout", authenticate, signOut);
 
 router.get("/oneCustomer/:customerId", adminAuth, getOneCustomer);

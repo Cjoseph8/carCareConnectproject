@@ -17,7 +17,7 @@ const notificationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['Booking Update', 'Promotion', 'System Alert'], 
+        enum: ['Booking Request', 'Promotion', 'System Alert'], 
         required: true
     },
     read: {

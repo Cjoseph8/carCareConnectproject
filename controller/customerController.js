@@ -50,7 +50,7 @@ exports.signUpUser = async (req, res) => {
         const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "1d" });
 
         // Send verification mail `${req.protocol}://${req.get("host")}/api/v1/users/verify/${token}`
-        const verificationLink =`https://carcareconnectproject.onrender.com/api/v1/verifyEmail/${token}`;
+        const verificationLink =` https://car-care-g11.vercel.app/#/verifyEmail/${token}`;
         const emailSubject = 'Verification Mail';
         const html = generateWelcomeEmail(createdUser.fullName, verificationLink);
         // using nodemailer to send mail to our user
@@ -127,39 +127,43 @@ exports.verifyEmail = async (req, res) => {
 
 exports.resendEmail = async (req, res) => {
     try {
-        // get user email from request body
+        // Get user email from request body
         const { email } = req.body;
 
-        // find user
-        const user = await customerModel.findOne({ email });
+        // Try to find the user in the customer model
+        let user = await customerModel.findOne({ email });
+        
+        // If not found, try to find the user in the mechanic model
         if (!user) {
-            return res.status(404).json({
-                error: "User not found"
-            });
+            user = await mechModel.findOne({ email });
         }
 
-        // Check if user has already been verified
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        // Check if the user has already been verified
         if (user.isVerified) {
-            return res.status(400).json({
-                error: "User already verified"
-            });
+            return res.status(400).json({ error: "User already verified" });
         }
 
-        // create a token
+        // Create a token
         const token = await jwt.sign({ email }, process.env.secret_key, { expiresIn: "5m" });
 
-        // Send verification mail
-        const verificationLink = `https://carcareconnectproject.onrender.com/api/v1/verifyEmail/${token}`;
+        // Generate the verification link
+        const verificationLink = `https://car-care-g11.vercel.app/#/verifyEmail/${token}`;
         const emailSubject = 'Verification Mail';
         const html = generateWelcomeEmail(user.fullName, verificationLink);
-        // using nodemailer to send mail to our user
+
+        // Prepare email options
         const mailOptions = {
             from: process.env.mailUser,
-            to: email, // Use the user's email address here
+            to: user.email, // Use the user's email address here
             subject: emailSubject,
             html: html
         };
 
+        // Send verification email
         await sendMailer(mailOptions);
 
         res.status(200).json({
@@ -169,68 +173,90 @@ exports.resendEmail = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             message: error.message
-        })
+        });
     }
 };
 
 
 exports.signIn = async (req, res) => {
+    const { email, password } = req.body;
+    const data = { email: email.toLowerCase(), password };
+
     try {
-        // Extract email and password from request body
-        const { email, password } = req.body;
+        const existingCustomer = await customerModel.findOne({ email: data.email });
+        const existingMechanic = await mechModel.findOne({ email: data.email });
 
-        // Check if the email exists
-        const findUser = await customerModel.findOne({ email: email.toLowerCase()});
-        if (!findUser) {
-            return res.status(404).json({ message: 'User with this email does not exist' });
-        }
-
-        // Check if the password matches
-        const matchedPassword = await bcrypt.compare(password, findUser.password);
-        if (!matchedPassword) {
-            return res.status(400).json({ message: 'Incorrect password' });
-        }
-
-        // Check if the user's email is verified
-        if (findUser.isVerified === false) {
-            return res.status(400).json({ message: 'Your email is not yet verified' });
-        }
-
-        // Mark the user as logged in
-        findUser.isLoggedIn = true;
-        await findUser.save();
-
-        // Generate a JWT token
-        const token = jwt.sign({
-            fullName: findUser.fullName,
-            email: findUser.email,
-            userId: findUser._id,
-            isAdmin: findUser.isAdmin
-        }, process.env.secret_key, { expiresIn: '1d' });
-
+        // Determine the current hour for greeting
         const currentHour = new Date().getHours();
         let greetingMessage;
 
         if (currentHour >= 5 && currentHour < 12) {
-            greetingMessage = `Good morning, ${findUser.fullName}!`;
+            greetingMessage = "Good Morning";
         } else if (currentHour >= 12 && currentHour < 17) {
-            greetingMessage = `Good afternoon, ${findUser.fullName}!`;
-        } else if (currentHour >= 17 && currentHour < 21) {
-            greetingMessage = `Good evening, ${findUser.fullName}!`;
+            greetingMessage = "Good Afternoon";
         } else {
-            greetingMessage = `Good night, ${findUser.fullName}!`;
+            greetingMessage = "Good Evening";
         }
-        // Respond with the greeting message, user details, and token
-        return res.status(200).json({
-            message: greetingMessage,
-            user: findUser,
-            token
-        });
+
+        // Check if customer exists
+        if (existingCustomer) {
+            if (!existingCustomer.isVerified) {
+                return res.status(400).json({ message: "Your email is not yet verified" });
+            }
+
+            const isPasswordMatch = await bcrypt.compare(data.password, existingCustomer.password);
+            if (isPasswordMatch) {
+                // Generate a JWT token
+                const token = jwt.sign(
+                    { userId: existingCustomer._id, isAdmin: existingCustomer.isAdmin },
+                    process.env.secret_key,
+                    { expiresIn: '1d' }
+                );
+
+                return res.status(200).json({ 
+                    message: `${greetingMessage}, ${existingCustomer.fullName}! Welcome back to our platform!`, 
+                    data: existingCustomer,
+                    token 
+                });
+            } else {
+                return res.status(400).json({ message: "Incorrect password" });
+            }
+        }
+
+        // Check if mechanic exists
+        if (existingMechanic) {
+            if (!existingMechanic.isVerified) {
+                return res.status(400).json({ message: "Your email is not yet verified" });
+            }
+
+            const isPasswordMatch = await bcrypt.compare(data.password, existingMechanic.password);
+            if (isPasswordMatch) {
+                // Generate a JWT token
+                const token = jwt.sign(
+                    { userId: existingMechanic._id, isAdmin: existingMechanic.isAdmin },
+                    process.env.secret_key,
+                    { expiresIn: '1d' }
+                );
+
+                return res.status(200).json({ 
+                    message: `${greetingMessage}, ${existingMechanic.fullName}! Welcome back to our platform!`, 
+                    data: existingMechanic,
+                    token 
+                });
+            } else {
+                return res.status(400).json({ message: "Incorrect password" });
+            }
+        }
+
+        // If no user found in both models
+        return res.status(400).json({ message: "User not found" });
 
     } catch (error) {
+        // Handle unexpected errors
         return res.status(500).json({ message: error.message });
     }
 };
+
 
 
 exports.forgotPassword = async (req, res) => {
@@ -523,6 +549,45 @@ exports.updatePicture=async(req,res)=>{
      res.status(500).json(error.message)   
     }
     };
+
+    exports.updateUserProfile = async (req, res) => {
+        try {
+            const { fullName, phoneNumber } = req.body;
+            const userId = req.user.userId; // Assuming you get the user ID from the token
+    
+            // Find the user by ID
+            const user = await customerModel.findById(userId);
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+    
+            // Check for phone number uniqueness
+            if (phoneNumber) {
+                const existingPhone = await customerModel.findOne({ phoneNumber, _id: { $ne: userId } });
+                if (existingPhone) {
+                    return res.status(400).json({ message: 'Phone number already in use' });
+                }
+                user.phoneNumber = phoneNumber; 
+            }
+            // Update full name if provided
+            if (fullName) {
+                user.fullName = fullName; 
+            }
+            // Save the updated user information
+            const updatedUser = await user.save();
+    
+            return res.status(200).json({
+                message: 'User profile updated successfully',
+                user: {
+                    fullName: updatedUser.fullName,
+                    phoneNumber: updatedUser.phoneNumber,
+                },
+            });
+        } catch (error) {
+            return res.status(500).json({ message: error.message });
+        }
+    };
+    
 
     exports.getAllCustomers = async(req, res)=>{
         try{

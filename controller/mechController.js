@@ -48,7 +48,7 @@ exports.createMech  = async (req, res) => {
         const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "1d" });
 
         // Send verification mail ;
-        const verificationLink =`https://carcareconnectproject.onrender.com/api/v1/mech/verifyEmail/${token}`;
+        const verificationLink =` https://car-care-g11.vercel.app/#/mechEmailVerf/${token}`;
         const emailSubject = 'Verification Mail';
         const html = generateWelcomeEmail(createdUser.fullName, verificationLink);
         // using nodemailer to send mail to our user
@@ -192,101 +192,53 @@ exports.completeProfile = async (req, res) => {
     }
 };
 
+exports.updateProfessionFields = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { areaOfSpecialization, yearsOfExperience, businessAddress } = req.body;
 
-// exports.uploadDocument = async (req, res) => {
-//     try {
-//         const userId = req.user.userId;
+        if (!userId) {
+            return res.status(400).json({ message: 'User ID is required' });
+        }
 
-//         if (!userId) {
-//             return res.status(400).json({ message: "Login to continue" });
-//         }
+        const user = await mechModel.findById(userId);
 
-//         const { profilePicture, identification, certification, insurance } = req.files; 
+        // Check if user exists
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
 
-//         if (!profilePicture || profilePicture.length === 0) {
-//             return res.status(400).json({ message: "Profile picture is required" });
-//         }
-//         if (!identification || identification.length === 0) {
-//             return res.status(400).json({ message: "Identification is required" });
-//         }
-//         if (!certification || certification.length === 0) {
-//             return res.status(400).json({ message: "Certification is required" });
-//         }
+        // Prepare update fields
+        const updateFields = {};
+        if (areaOfSpecialization) updateFields.areaOfSpecialization = areaOfSpecialization;
+        if (yearsOfExperience) updateFields.yearsOfExperience = yearsOfExperience;
+        if (businessAddress) updateFields.businessAddress = businessAddress;
 
-//         // Prepare upload promises for Cloudinary
-//         const uploadPromises = [
-//             cloudinary.uploader.upload(profilePicture[0].path, { folder: "users_dp/profile_pictures" }),
-//             cloudinary.uploader.upload(identification[0].path, { folder: "users_dp/identifications" }),
-//             cloudinary.uploader.upload(certification[0].path, { folder: "users_dp/certifications" })
-//         ];
+        // Update user profile with the provided details
+        const updatedUser = await mechModel.findByIdAndUpdate(
+            userId,
+            updateFields,
+            { new: true }
+        );
 
-//         if (insurance && insurance.length > 0) {
-//             uploadPromises.push(cloudinary.uploader.upload(insurance[0].path, { folder: "users_dp/insurance" }));
-//         }
+        if (!updatedUser) {
+            return res.status(400).json({ message: 'Failed to update profile' });
+        }
 
-//         const [profilePictureResult, identificationResult, certificationResult, insuranceResult] = await Promise.all(uploadPromises);
+        return res.status(200).json({
+            message: 'Profile updated successfully',
+            user: updatedUser
+        });
 
-//         // Prepare update fields
-//         const updateFields = {
-//             profilePicture: {
-//                 pictureId: profilePictureResult.public_id,
-//                 pictureUrl: profilePictureResult.secure_url
-//             },
-//             Identification: {
-//                 fileId: identificationResult.public_id,
-//                 fileUrl: identificationResult.secure_url
-//             },
-//             certification: {
-//                 fileId: certificationResult.public_id,
-//                 fileUrl: certificationResult.secure_url
-//             },
-//             insurance: insuranceResult ? {
-//                 fileId: insuranceResult.public_id,
-//                 fileUrl: insuranceResult.secure_url
-//             } : null
-//         };
-
-//         // Update the user's profile with the Cloudinary URLs
-//         const updatedUser = await mechModel.findByIdAndUpdate(userId, updateFields, { new: true });
-
-//         if (!updatedUser) {
-//             return res.status(404).json({ message: "User not found" });
-//         }
-
-//         // Clean up local files
-//         const cleanupFiles = [
-//             profilePicture[0].path,
-//             identification[0].path,
-//             certification[0].path
-//         ];
-
-//         if (insurance && insurance.length > 0) {
-//             cleanupFiles.push(insurance[0].path);
-//         }
-
-//         cleanupFiles.forEach(filePath => {
-//             fs.unlink(filePath, (err) => {
-//                 if (err) {
-//                     console.error("Failed to delete file", filePath, err);
-//                 } else {
-//                     console.log("Successfully deleted file", filePath);
-//                 }
-//             });
-//         });
-
-//         return res.status(200).json({
-//             message: 'Profile pictures and documents uploaded successfully',
-//             user: updatedUser
-//         });
-
-//     } catch (err) {
-//         console.error('Error during upload:', err);
-//         return res.status(500).json({
-//             message: 'An error occurred during upload',
-//             error: err.message
-//         });
-//     }
-// };
+    } catch (error) {
+        // Handle unexpected errors
+        console.error('Error updating profile fields:', error);
+        return res.status(500).json({
+            message: 'An error occurred while updating the profile fields',
+            error: error.message
+        });
+    }
+};
 
  //Change profile picture
  exports.changeProfilePix = async (req, res) => {
@@ -363,149 +315,150 @@ exports.completeProfile = async (req, res) => {
 
 
 //create an end point to verify users email
-exports.verifyEmail = async(req, res)=>{
+exports.verifyEmail = async (req, res) => {
     try {
-        const {token} = req.params;
+        const { token } = req.params;
+
         if (!token) {
-            return res.status(404).json({
+            return res.status(400).json({
                 error: "Token not found"
-            })
+            });
         }
 
-        // verify the token
+        // Verify the token
         const { email } = jwt.verify(token, process.env.secret_key);
-        const mechanic = await mechModel.findOne({ email: email.toLowerCase().trim() });
-       
-        if (!mechanic) {
+
+        const createdUser = await mechModel.findOne({ email });
+
+        if (!createdUser) {
             return res.status(404).json({
                 error: "User not found"
             });
         }
 
         // Check if user has already been verified
-        if (mechanic.isVerified) {
+        if (createdUser.isVerified) {
             return res.status(400).json({
                 error: "User already verified"
             });
         }
 
-        
-        // update the user verification
-        mechanic.isVerified = true;
+        // Update the user verification status
+        createdUser.isVerified = true;
+        // Save the changes
+        await createdUser.save();
 
-        // save the changes
-        await mechanic.save();
-
-        res.json(200).json({
-            message:'successful',
-            data:mechanic.position
-        })
+        return res.status(200).json({
+            message: 'Verification successful',
+            data: createdUser.position 
+        });
     
     } catch (error) {
         if (error instanceof jwt.JsonWebTokenError) {
-            return res.status(404).json({
-                message: "Try Again please."
-            });
-        }
-        res.status(500).json({
-            message: error.message
-        })
-    }
-}
-
-exports.resendEmail = async (req, res) => {
-    try {
-        // get user email from request body
-        const { email } = req.body;
-
-        // find user
-        const user = await mechModel.findOne({ email });
-        if (!user) {
-            return res.status(404).json({
-                error: "User not found"
-            });
-        }
-
-        // Check if user has already been verified
-        if (user.isVerified) {
             return res.status(400).json({
-                error: "User already verified"
+                message: "Invalid token. Please try again."
             });
         }
-
-        // create a token
-        const token = await jwt.sign({ email }, process.env.secret_key, { expiresIn: "50m" });
-
-        // send verification email
-        const mailOptions = {
-            email: user.email,
-            subject: "Email Verification",
-            html: `Please click on the link to verify your email: <a href="carcareconnectproject.onrender.com/api/v1/mech/resendEmail/${token}>ResendEmail</a>`,
-        };
-
-        await sendMailer(mailOptions);
-
-        res.status(200).json({
-            message: `Verification email sent successfully to your email: ${user.email}`
-        });
-
-    } catch (error) {
-        res.status(500).json({
+        return res.status(500).json({
             message: error.message
-        })
+        });
     }
 };
 
 
-exports.signIn =async(req, res)=>{
-    try {
-        //Login with email & password
-        const {email, password}= req.body
-        if(!email){
-            return res.status(404).json({message:'email is require'})
-        }
-        // Check if email exit
-        const findUser = await mechModel.findOne({email: email.toLowerCase()})
-        if(!findUser){
-            return res.status(404).json({message:'user not found'})
-        }
-        //Check if password exit
-        const matchedPassword = await bcrypt.compare(password, findUser.password)
-       if(!matchedPassword){
-            return res.status(400).json({message:'incorrect password'})
-        }
-        if(findUser.isVerified === false){
-           return  res.status(400).json({message:'Your email is not yet verified'})
-        }
-        findUser.isLoggedIn = true
-        const token = jwt.sign({ 
-            fullName:findUser.fullName,
-            email: findUser.email,userId: findUser._id }, 
-            process.env.secret_key,{ expiresIn: "1d" });
+// exports.resendEmail = async (req, res) => {
+//     try {
+//         // get user email from request body
+//         const { email } = req.body;
 
-            const currentHour = new Date().getHours();
-        let greetingMessage;
+//         // find user
+//         const user = await mechModel.findOne({ email });
+//         if (!user) {
+//             return res.status(404).json({
+//                 error: "User not found"
+//             });
+//         }
 
-        if (currentHour >= 5 && currentHour < 12) {
-            greetingMessage = `Good morning, ${findUser.fullName}!`;
-        } else if (currentHour >= 12 && currentHour < 17) {
-            greetingMessage = `Good afternoon, ${findUser.fullName}!`;
-        } else if (currentHour >= 17 && currentHour < 21) {
-            greetingMessage = `Good evening, ${findUser.fullName}!`;
-        } else {
-            greetingMessage = `Good night, ${findUser.fullName}!`;
-        }
-        // Respond with the greeting message, user details, and token
-        return res.status(200).json({
-            message: greetingMessage,
-            user: findUser,
-            token
-        });
+//         // Check if user has already been verified
+//         if (user.isVerified) {
+//             return res.status(400).json({
+//                 error: "User already verified"
+//             });
+//         }
 
-    } catch (error) {
-        return res.status(500).json(error.message);
-    }
-}
+//         // create a token
+//         const token = await jwt.sign({ email }, process.env.secret_key, { expiresIn: "5m" });
+
+//         // send verification email
+//         const mailOptions = {
+//             email: user.email,
+//             subject: "Email Verification",
+//             html: `Please click on the link to verify your email: <a href="carcareconnectproject.onrender.com/api/v1/mech/resendEmail/${token}>ResendEmail</a>`,
+//         };
+
+//         await sendMailer(mailOptions);
+
+//         res.status(200).json({
+//             message: `Verification email sent successfully to your email: ${user.email}`
+//         });
+
+//     } catch (error) {
+//         res.status(500).json({
+//             message: error.message
+//         })
+//     }
+// };
+
+
+// exports.signIn =async(req, res)=>{
+//     try {
+//         //Login with email & password
+//         const {email, password}= req.body
+//         if(!email){
+//             return res.status(404).json({message:'email is require'})
+//         }
+//         // Check if email exit
+//         const findUser = await mechModel.findOne({email: email.toLowerCase()})
+//         if(!findUser){
+//             return res.status(404).json({message:'user not found'})
+//         }
+//         //Check if password exit
+//         const matchedPassword = await bcrypt.compare(password, findUser.password)
+//        if(!matchedPassword){
+//             return res.status(400).json({message:'incorrect password'})
+//         }
+//         if(findUser.isVerified === false){
+//            return  res.status(400).json({message:'Your email is not yet verified'})
+//         }
+//         findUser.isLoggedIn = true
+//         const token = jwt.sign({ 
+//             fullName:findUser.fullName,
+//             email: findUser.email,userId: findUser._id }, 
+//             process.env.secret_key,{ expiresIn: "1d" });
+
+//             const currentHour = new Date().getHours();
+//         let greetingMessage;
+
+//         if (currentHour >= 5 && currentHour < 12) {
+//             greetingMessage = `Good Morning ${findUser.fullName}, What are Your Goals for Today!`;
+//         } else if (currentHour >= 12 && currentHour < 17) {
+//             greetingMessage = `Good Afternoon ${findUser.fullName}, Remember Your Plans!`;
+//         } else if (currentHour >= 17 && currentHour < 21) {
+//             greetingMessage = `Good Evening, ${findUser.fullName}!`;
+//         } else {
+//             greetingMessage = `Good Evening, ${findUser.fullName}!`;
+//         }
+//         // Respond with the greeting message, user details, and token
+//         return res.status(200).json({
+//             message: greetingMessage,
+//             user: findUser,
+//             token
+//         });
+
+//     } catch (error) {
+//         return res.status(500).json(error.message);
+//     }
+// };
 
 exports.forgotPassword = async (req, res) => {
     try {
@@ -703,6 +656,44 @@ exports.signOut = async (req, res) => {
         });
     }
 };
+
+exports.updateMechProfile = async (req, res) => {
+    try {
+        const { fullName, phoneNumber } = req.body;
+        const userId = req.user.userId; // Assuming you get the user ID from the token
+
+        // Find the user by ID
+        const user = await mechModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        // Check for phone number uniqueness
+        if (phoneNumber) {
+            const existingPhone = await mechModel.findOne({ phoneNumber, _id: { $ne: userId } });
+            if (existingPhone) {
+                return res.status(400).json({ message: 'Phone number already in use' });
+            }
+            user.phoneNumber = phoneNumber; 
+        }
+        
+        if (fullName) {
+            user.fullName = fullName; 
+        }
+        // Save the updated user information
+        const updatedUser = await user.save();
+
+        return res.status(200).json({
+            message: 'User profile updated successfully',
+            user: {
+                fullName: updatedUser.fullName,
+                phoneNumber: updatedUser.phoneNumber,
+            },
+        });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+};
+
 
 exports.getAllMech = async(req, res)=>{
     try{

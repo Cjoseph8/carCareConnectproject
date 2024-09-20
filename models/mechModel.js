@@ -78,9 +78,24 @@ const mechSchema = new mongoose.Schema({
         }
     },
     wallet: {
-        type: Number,
-        default: 0.00
+        balance: { type: Number, default: 0 },
     },
+    // wallet: {
+    //     balance: { type: Number, default: 0.00 },
+    //     transactions: [{
+    //       type: new mongoose.Schema({
+    //         amount: { type: Number, required: true },
+    //         type: { 
+    //           type: String,
+    //           enum: ['credit', 'debit'],
+    //           required: true
+    //         },
+    //         date: { type: Date, default: Date.now },
+    //         description: { type: String }
+    //       }, { _id: false })
+    //     }]
+      
+    // },
     averageRating: {
         type: Number,
         default: 0
