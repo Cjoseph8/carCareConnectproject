@@ -79,7 +79,7 @@ exports.bookAppointment = async (req, res) => {
     try {
         const customerId = req.user.userId;
         const { mechId } = req.params;
-        const { brand, service, model, city, year, notes } = req.body;
+        const { brand, service, model, city, year, notes, date, time } = req.body;
 
         // Find the customer
         const customer = await customerModel.findById(customerId);
@@ -136,6 +136,8 @@ exports.bookAppointment = async (req, res) => {
             service,
             model,
             city,
+            date,
+            time,
             year,
             notes,
             status: 'Pending'
@@ -385,28 +387,33 @@ exports.getOneBooking = async(req,res)=>{
 exports.completeBooking = async (req, res) => {
     try {
         const { bookingId } = req.params;
-        const { serviceCharge } = req.body; 
+        const mechId = req.user.userId
         const booking = await bookingModel.findById(bookingId);
 
         if (!booking) {
             return res.status(404).json({ message: 'Booking not found.' });
         }
 
-        // Check if the user is authorized to complete this booking (e.g., mechanic)
-        if (booking.mechanicId.toString() !== req.user.userId) {
-            return res.status(403).json({ message: 'Not authorized to complete this booking.' });
-        }
+        // // Check if the user is authorized to complete this booking (e.g., mechanic)
+        // if (booking.mechanicId.toString() !== ) {
+        //     return res.status(403).json({ message: 'Not authorized to complete this booking.' });
+        // }
+
+        const mech = await mechModel.findById(mechId);
+
 
         // Update the booking status and service charge
         booking.status = 'Completed';
-        booking.serviceCharge = serviceCharge; 
         await booking.save();
+
+        mech.wallet += booking.serviceCharge
+        await mech.save()
 
         // Create a notification for the customer
         const notification = new Notification({
             userId: booking.customerId, 
             title: 'Booking Completed',
-            message: `Your booking for ${booking.service.join(', ')} has been completed. Your car is now ready for the road! Service charge: $${serviceCharge}.`,
+            message: `Your booking for ${booking.service}, has been completed. Your car is now ready for the road! Service charge: $${serviceCharge}.`,
             type: 'Booking Request',
             read: false
         });

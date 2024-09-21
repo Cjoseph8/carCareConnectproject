@@ -78,7 +78,8 @@ const mechSchema = new mongoose.Schema({
         }
     },
     wallet: {
-        balance: { type: Number, default: 0 },
+         type: Number, 
+         default: 0 ,
     },
     // wallet: {
     //     balance: { type: Number, default: 0.00 },

@@ -18,6 +18,7 @@ const {
   makeAdmin,
   approveMech,
   getAllApprovedMechs,
+  getOneApprovedMech
 } = require("../controller/customerController");
 const { getAllMech, deleteMech }= require("../controller/mechController")
 const { authenticate, isAdmin } = require("../middleware/authenticate");
@@ -60,7 +61,8 @@ router.delete('/deleteMech/:mechId', adminAuth, deleteMech);
 
 router.put('/mechanics/approve/:mechId', adminAuth, approveMech);
 
-router.get('/mechanics/approved',  adminAuth, getAllApprovedMechs);
+router.get('/mechanics/approved', authenticate, getAllApprovedMechs);
 
+router.get('/mechanic/one/approved/:mechId', authenticate, getOneApprovedMech);
 
 module.exports = router;

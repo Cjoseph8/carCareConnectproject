@@ -148,7 +148,7 @@ exports.resendEmail = async (req, res) => {
         }
 
         // Create a token
-        const token = await jwt.sign({ email }, process.env.secret_key, { expiresIn: "5m" });
+        const token = await jwt.sign({ email }, process.env.secret_key, { expiresIn: "1d" });
 
         // Generate the verification link
         const verificationLink = `https://car-care-g11.vercel.app/#/verifyEmail/${token}`;
@@ -699,6 +699,34 @@ exports.getAllApprovedMechs = async (req, res) => {
         });
     }
 };
+
+exports.getOneApprovedMech = async (req, res) => {
+    try {
+        // Extract mechanic ID from request parameters
+        const { mechId } = req.params;
+
+        // Fetch the mechanic by ID from the database
+        const mechanic = await mechModel.findById(mechId);
+
+        // Check if the mechanic is found and approved
+        if (!mechanic || mechanic.approved !== 'Approved') {
+            return res.status(404).json({ message: "Mechanic not found or not approved." });
+        }
+
+        // Respond with the mechanic's details
+        res.status(200).json({
+            message: 'Mechanic details:',
+            data: mechanic
+        });
+    } catch (err) {
+        // Handle any errors that occur
+        res.status(500).json({
+            message: 'An error occurred while retrieving the mechanic.',
+            error: err.message
+        });
+    }
+};
+
 
 exports.makeAdmin = async (req, res) => {
     try {
