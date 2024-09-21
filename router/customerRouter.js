@@ -36,7 +36,7 @@ router.route("/signin").post(signIn);
 
 router.route("/forgotPassword").post(forgotPassword);
 
-router.route("/resetPassword").post(resetPassword);
+router.route("/resetPassword/:token").post(resetPassword);
 
 router.route("/changePassword").post(authenticate, changePassword);
 

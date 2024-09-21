@@ -339,6 +339,7 @@ exports.getAllBooking = async(req,res)=>{
         }));
 
         res.status(200).json({
+            number:user.length,
             data:details
         })
         

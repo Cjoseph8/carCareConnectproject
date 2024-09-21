@@ -214,7 +214,7 @@ exports.signIn = async (req, res) => {
                 );
 
                 return res.status(200).json({ 
-                    message: `${greetingMessage}, ${existingCustomer.fullName}! Welcome back to CARCARE, we care!`, 
+                    message: `${greetingMessage}, ${existingCustomer.fullName} Welcome back to CARCARE, we care!`, 
                     data: existingCustomer,
                     token 
                 });
