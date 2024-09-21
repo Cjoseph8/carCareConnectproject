@@ -460,46 +460,46 @@ exports.verifyEmail = async (req, res) => {
 //     }
 // };
 
-exports.forgotPassword = async (req, res) => {
-    try {
+// exports.forgotPassword = async (req, res) => {
+//     try {
        
-        const { email } = req.body;
+//         const { email } = req.body;
 
-        // Check if the email exists in the userModel
-        const user = await mechModel.findOne({ email: email.toLowerCase() });
-        if (!user) {
-            return res.status(404).json({
-                message: "User not found"
-            });
-        }
+//         // Check if the email exists in the userModel
+//         const user = await mechModel.findOne({ email: email.toLowerCase() });
+//         if (!user) {
+//             return res.status(404).json({
+//                 message: "User not found"
+//             });
+//         }
 
-        // Generate a reset token
-        const resetToken = await jwt.sign({ userId: user._id }, process.env.secret_key, { expiresIn: "30m" });
+//         // Generate a reset token
+//         const resetToken = await jwt.sign({ userId: user._id }, process.env.secret_key, { expiresIn: "30m" });
 
-        // Send verification mail
-        const verificationLink = " ";
-        const emailSubject = 'Verification Mail';
-        const html = ForgetPasswordEmail(user.fullName, verificationLink);
-        // using nodemailer to send mail to our user
-        const mailOptions = {
-            from: process.env.mailUser,
-            to: email, // Use the user's email address here
-            subject: emailSubject,
-            html: html
-        };
-        await sendMailer(mailOptions);
+//         // Send verification mail
+//         const verificationLink = " ";
+//         const emailSubject = 'Verification Mail';
+//         const html = ForgetPasswordEmail(user.fullName, verificationLink);
+//         // using nodemailer to send mail to our user
+//         const mailOptions = {
+//             from: process.env.mailUser,
+//             to: email, // Use the user's email address here
+//             subject: emailSubject,
+//             html: html
+//         };
+//         await sendMailer(mailOptions);
 
-        res.status(200).json({
-            message: "Password reset email has been sent  to your email, check your email",
+//         res.status(200).json({
+//             message: "Password reset email has been sent  to your email, check your email",
             
-        });
-    } catch (error) {
-        console.error("Something went wrong", error.message);
-        res.status(500).json({
-            message: error.message
-        });
-    }
-};
+//         });
+//     } catch (error) {
+//         console.error("Something went wrong", error.message);
+//         res.status(500).json({
+//             message: error.message
+//         });
+//     }
+// };
 
 
 // Reset Password
@@ -619,13 +619,15 @@ exports.signOut = async (req, res) => {
                 message: 'Token is missing.',
             });
         }
+        // console.log(token)
 
         // Verify the token and extract email
         const decoded = jwt.verify(token, process.env.secret_key);
-        const { email } = decoded;
+        const { userId } = decoded;
+        // console.log(decoded)
 
         // Find the user by email
-        const user = await mechModel.findOne({ email });
+        const user = await mechModel.findById(userId);
 
         if (!user) {
             return res.status(404).json({

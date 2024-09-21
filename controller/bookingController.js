@@ -332,7 +332,7 @@ exports.getAllBooking = async(req,res)=>{
             brand: booking.brand,
             service: booking.service,
             model: booking.model,
-            notes: booking.note,
+            notes: booking.notes,
             city: booking.city,
             year: booking.year,
             status: booking.status

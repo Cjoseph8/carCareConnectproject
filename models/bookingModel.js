@@ -23,6 +23,7 @@ const bookingSchema = new mongoose.Schema(
       type: Array,
       required: true,
     },
+    serviceType:{ type: String },
     date: { type: String },
     time: { type: String },
     city: { type: String, required: true },

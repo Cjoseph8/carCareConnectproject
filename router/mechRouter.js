@@ -21,17 +21,17 @@ router.route("/mech/verifyEmail/:token").patch(verifyEmail);
 
 // router.route("/mech/signin").post(signIn);
 
-router.route("/mech/forgotPassword").post(forgotPassword);
+// router.route("/mech/forgotPassword").post(forgotPassword);
 
 router.route("/mech/resetPassword").post(resetPassword);
 
 router.route("/mech/changePassword/:token").post(authenticate, changePassword);
 
-router.post('/mech/signout/', authenticate, signOut);
+router.post('/mech/signout', authenticate, signOut);
 
 router.get('/oneMech/:mechId', authenticate,  getOneMech);
 
-router.post('/mech/completeProfile', validateMech, authenticate, uploadMultiple, completeProfile);
+router.post('/mech/completeProfile', validateMech, uploadMultiple, completeProfile);
 // router.post('/mech/uploadDocument', authenticateMech, uploadMultiple, uploadDocument);
 router.get('/mech/changeProfilePix', authenticate,  changeProfilePix);
 router.get('/mech/updatePersonal', authenticate, updateMechProfile);

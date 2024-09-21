@@ -214,7 +214,7 @@ exports.signIn = async (req, res) => {
                 );
 
                 return res.status(200).json({ 
-                    message: `${greetingMessage}, ${existingCustomer.fullName}! Welcome back to our platform!`, 
+                    message: `${greetingMessage}, ${existingCustomer.fullName}! Welcome back to CARCARE, we care!`, 
                     data: existingCustomer,
                     token 
                 });
@@ -239,7 +239,7 @@ exports.signIn = async (req, res) => {
                 );
 
                 return res.status(200).json({ 
-                    message: `${greetingMessage}, ${existingMechanic.fullName}! Welcome back to our platform!`, 
+                    message: `${greetingMessage}, ${existingMechanic.fullName} Welcome back to CARCARE, we care!`, 
                     data: existingMechanic,
                     token 
                 });
@@ -263,29 +263,31 @@ exports.forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
 
-        // Check if the email exists in the userModel
-        const user = await customerModel.findOne({ email: email.toLowerCase() });
+        // Check if the email exists in the customerModel first
+        const user = await customerModel.findOne({ email: email.toLowerCase() }) || await mechModel.findOne({ email: email.toLowerCase() });
+        
         if (!user) {
             return res.status(404).json({
                 message: "User not found"
             });
         }
-
         // Generate a reset token
-        const resetToken = await jwt.sign({ userId: user._id }, process.env.secret_key, { expiresIn: "30m" });
+        const resetToken = jwt.sign({ userId: user._id }, process.env.secret_key, { expiresIn: "30m" });
 
         // Send verification mail
-        const verificationLink = " ";
+        const verificationLink = ""; // Add your link logic here
         const emailSubject = 'Verification Mail';
         const html = ForgetPasswordEmail(user.fullName, verificationLink);
-        // using nodemailer to send mail to our user
+
+        // Prepare mail options
         const mailOptions = {
             from: process.env.mailUser,
-            to: email, // Use the user's email address here
+            to: email,
             subject: emailSubject,
             html: html
         };
 
+        // Send the email
         await sendMailer(mailOptions);
 
         res.status(200).json({
@@ -299,6 +301,7 @@ exports.forgotPassword = async (req, res) => {
         });
     }
 };
+
 
 
 // Reset Password
