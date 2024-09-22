@@ -94,15 +94,15 @@ exports.completeProfile = async (req, res) => {
 
         const { profilePicture, identification, certification, insurance } = req.files; 
 
-        if (!profilePicture || profilePicture.length === 0) {
-            return res.status(400).json({ message: "Profile picture is required" });
-        }
-        if (!identification || identification.length === 0) {
-            return res.status(400).json({ message: "Identification is required" });
-        }
-        if (!certification || certification.length === 0) {
-            return res.status(400).json({ message: "Certification is required" });
-        }
+        // if (!profilePicture || profilePicture.length === 0) {
+        //     return res.status(400).json({ message: "Profile picture is required" });
+        // }
+        // if (!identification || identification.length === 0) {
+        //     return res.status(400).json({ message: "Identification is required" });
+        // }
+        // if (!certification || certification.length === 0) {
+        //     return res.status(400).json({ message: "Certification is required" });
+        // }
 
         // Prepare upload promises for Cloudinary
         const uploadPromises = [
