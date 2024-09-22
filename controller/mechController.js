@@ -48,7 +48,7 @@ exports.createMech  = async (req, res) => {
         const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "7d" });
 
         // Send verification mail ;
-        const verificationLink =` https://car-care-g11.vercel.app/#/verifyEmail/${token}`;
+        const verificationLink =` https://car-care-g11.vercel.app/#/mechEmailVerf/${token}`;
         const emailSubject = 'Verification Mail';
         const html = generateWelcomeEmail(createdUser.fullName, verificationLink);
         // using nodemailer to send mail to our user
