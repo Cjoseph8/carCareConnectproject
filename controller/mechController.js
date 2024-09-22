@@ -45,7 +45,7 @@ exports.createMech  = async (req, res) => {
         // save the above
         const createdUser = await user.save();
        //using jwt to sign in    ( user identity )                                    (Your secret)            (Duration )
-        const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "1d" });
+        const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "7d" });
 
         // Send verification mail ;
         const verificationLink =` https://car-care-g11.vercel.app/#/mechEmailVerf/${token}`;

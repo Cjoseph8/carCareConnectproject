@@ -47,7 +47,7 @@ exports.signUpUser = async (req, res) => {
         const createdUser = await user.save();
 
        //using jwt to sign in    ( user identity )                                    (Your secret)            (Duration )
-        const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "1d" });
+        const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "7d" });
 
         // Send verification mail `${req.protocol}://${req.get("host")}/api/v1/users/verify/${token}`
         const verificationLink =` https://car-care-g11.vercel.app/#/verifyEmail/${token}`;
@@ -148,7 +148,7 @@ exports.resendEmail = async (req, res) => {
         }
 
         // Create a token
-        const token = await jwt.sign({ email }, process.env.secret_key, { expiresIn: "1d" });
+        const token = await jwt.sign({ email }, process.env.secret_key, { expiresIn: "7d" });
 
         // Generate the verification link
         const verificationLink = `https://car-care-g11.vercel.app/#/verifyEmail/${token}`;
