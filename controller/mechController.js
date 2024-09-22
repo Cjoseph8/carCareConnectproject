@@ -48,7 +48,7 @@ exports.createMech  = async (req, res) => {
         const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "7d" });
 
         // Send verification mail ;
-        const verificationLink =` https://car-care-g11.vercel.app/#/mechEmailVerf/${token}`;
+        const verificationLink =` https://car-care-g11.vercel.app/#/verifyEmail/${token}`;
         const emailSubject = 'Verification Mail';
         const html = generateWelcomeEmail(createdUser.fullName, verificationLink);
         // using nodemailer to send mail to our user
@@ -94,15 +94,15 @@ exports.completeProfile = async (req, res) => {
 
         const { profilePicture, identification, certification, insurance } = req.files; 
 
-        // if (!profilePicture || profilePicture.length === 0) {
-        //     return res.status(400).json({ message: "Profile picture is required" });
-        // }
-        // if (!identification || identification.length === 0) {
-        //     return res.status(400).json({ message: "Identification is required" });
-        // }
-        // if (!certification || certification.length === 0) {
-        //     return res.status(400).json({ message: "Certification is required" });
-        // }
+        if (!profilePicture || profilePicture.length === 0) {
+            return res.status(400).json({ message: "Profile picture is required" });
+        }
+        if (!identification || identification.length === 0) {
+            return res.status(400).json({ message: "Identification is required" });
+        }
+        if (!certification || certification.length === 0) {
+            return res.status(400).json({ message: "Certification is required" });
+        }
 
         // Prepare upload promises for Cloudinary
         const uploadPromises = [
