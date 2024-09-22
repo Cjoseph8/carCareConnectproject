@@ -69,6 +69,130 @@ exports.createMech  = async (req, res) => {
 };
 
 
+// exports.completeProfile = async (req, res) => {
+
+//     try {
+//         const {
+//             businessName,
+//             businessAddress,
+//             areaOfSpecialization,
+//             yearsOfExperience,
+//             businessRegNumber
+//         } = req.body;
+
+//         const userId = req.user.userId;
+
+//         if (!userId) {
+//             return res.status(400).json({ message: 'User ID is required' });
+//         }
+
+//         const user = await mechModel.findById(userId);
+
+//         // Check if user exists
+//         if (!user) {
+//             return res.status(404).json({ message: 'User not found' });
+//         }
+
+//         const { profilePicture, identification, certification, insurance } = req.files; 
+
+//         if (!profilePicture || profilePicture.length === 0) {
+//             return res.status(400).json({ message: "Profile picture is required" });
+//         }
+//         if (!identification || identification.length === 0) {
+//             return res.status(400).json({ message: "Identification is required" });
+//         }
+//         if (!certification || certification.length === 0) {
+//             return res.status(400).json({ message: "Certification is required" });
+//         }
+
+//         // Prepare upload promises for Cloudinary
+//         const uploadPromises = [
+//             cloudinary.uploader.upload(profilePicture[0].path, { folder: "users_dp/profile_pictures" }),
+//             cloudinary.uploader.upload(identification[1].path, { folder: "users_dp/identifications" }),
+//             cloudinary.uploader.upload(certification[2].path, { folder: "users_dp/certifications" })
+//         ];
+
+//         if (insurance && insurance.length > 0) {
+//             uploadPromises.push(cloudinary.uploader.upload(insurance[0].path, { folder: "users_dp/insurance" }));
+//         }
+
+//         const [profilePictureResult, identificationResult, certificationResult, insuranceResult] = await Promise.all(uploadPromises);
+
+//         // Prepare update fields
+//         const updateFields = {
+//             profilePicture: {
+//                 pictureId: profilePictureResult.public_id,
+//                 pictureUrl: profilePictureResult.secure_url
+//             },
+//             Identification: {
+//                 fileId: identificationResult.public_id,
+//                 fileUrl: identificationResult.secure_url
+//             },
+//             certification: {
+//                 fileId: certificationResult.public_id,
+//                 fileUrl: certificationResult.secure_url
+//             },
+//             insurance: insuranceResult ? {
+//                 fileId: insuranceResult.public_id,
+//                 fileUrl: insuranceResult.secure_url
+//             } : null
+//         };
+
+//         // Update user profile with the provided details
+//         const updatedUser = await mechModel.findByIdAndUpdate(
+//             userId,
+//             {
+//                 ...updateFields,
+//                 businessName,
+//                 businessAddress,
+//                 areaOfSpecialization,
+//                 yearsOfExperience,
+//                 businessRegNumber,
+//                 isProfileComplete: true
+//             },
+//             { new: true }
+//         );
+
+//         if (!updatedUser) {
+//             return res.status(400).json({ message: 'Failed to update profile' });
+//         }
+
+//          // Clean up local files
+//          const cleanupFiles = [
+//             profilePicture[0].path,
+//             identification[0].path,
+//             certification[0].path
+//         ];
+
+//         if (insurance && insurance.length > 0) {
+//             cleanupFiles.push(insurance[0].path);
+//         }
+
+//         cleanupFiles.forEach(filePath => {
+//             fs.unlink(filePath, (err) => {
+//                 if (err) {
+//                     console.error("Failed to delete file", filePath, err);
+//                 } else {
+//                     console.log("Successfully deleted file", filePath);
+//                 }
+//             });
+//         });
+
+//         return res.status(200).json({
+//             message: 'Profile updated successfully',
+//             user: user
+//         });
+
+//     } catch (error) {
+//         // Handle unexpected errors
+//         console.error('Error updating profile:', error);
+//         return res.status(500).json({
+//             message: 'An error occurred while updating the profile',
+//             error: error.message
+//         });
+//     }
+// };
+
 exports.completeProfile = async (req, res) => {
     try {
         const {
@@ -92,6 +216,9 @@ exports.completeProfile = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        // Log req.files to see the structure
+        console.log(req.files); 
+
         const { profilePicture, identification, certification, insurance } = req.files; 
 
         if (!profilePicture || profilePicture.length === 0) {
@@ -105,35 +232,41 @@ exports.completeProfile = async (req, res) => {
         }
 
         // Prepare upload promises for Cloudinary
-        const uploadPromises = [
-            cloudinary.uploader.upload(profilePicture[0].path, { folder: "users_dp/profile_pictures" }),
-            cloudinary.uploader.upload(identification[0].path, { folder: "users_dp/identifications" }),
-            cloudinary.uploader.upload(certification[0].path, { folder: "users_dp/certifications" })
-        ];
+        const uploadPromises = [];
 
+        // Upload profile picture
+        uploadPromises.push(cloudinary.uploader.upload(profilePicture[0].path, { folder: "users_dp/profile_pictures" }));
+
+        // Upload identification
+        uploadPromises.push(cloudinary.uploader.upload(identification[0].path, { folder: "users_dp/identifications" }));
+
+        // Upload certification
+        uploadPromises.push(cloudinary.uploader.upload(certification[0].path, { folder: "users_dp/certifications" }));
+
+        // Upload insurance if available
         if (insurance && insurance.length > 0) {
             uploadPromises.push(cloudinary.uploader.upload(insurance[0].path, { folder: "users_dp/insurance" }));
         }
 
-        const [profilePictureResult, identificationResult, certificationResult, insuranceResult] = await Promise.all(uploadPromises);
+        const uploadResults = await Promise.all(uploadPromises);
 
         // Prepare update fields
         const updateFields = {
             profilePicture: {
-                pictureId: profilePictureResult.public_id,
-                pictureUrl: profilePictureResult.secure_url
+                pictureId: uploadResults[0].public_id,
+                pictureUrl: uploadResults[0].secure_url
             },
             Identification: {
-                fileId: identificationResult.public_id,
-                fileUrl: identificationResult.secure_url
+                fileId: uploadResults[1].public_id,
+                fileUrl: uploadResults[1].secure_url
             },
             certification: {
-                fileId: certificationResult.public_id,
-                fileUrl: certificationResult.secure_url
+                fileId: uploadResults[2].public_id,
+                fileUrl: uploadResults[2].secure_url
             },
-            insurance: insuranceResult ? {
-                fileId: insuranceResult.public_id,
-                fileUrl: insuranceResult.secure_url
+            insurance: uploadResults[3] ? {
+                fileId: uploadResults[3].public_id,
+                fileUrl: uploadResults[3].secure_url
             } : null
         };
 
@@ -156,8 +289,8 @@ exports.completeProfile = async (req, res) => {
             return res.status(400).json({ message: 'Failed to update profile' });
         }
 
-         // Clean up local files
-         const cleanupFiles = [
+        // Clean up local files
+        const cleanupFiles = [
             profilePicture[0].path,
             identification[0].path,
             certification[0].path
@@ -179,7 +312,7 @@ exports.completeProfile = async (req, res) => {
 
         return res.status(200).json({
             message: 'Profile updated successfully',
-            user: user
+            user: updatedUser // Return the updated user
         });
 
     } catch (error) {
@@ -726,9 +859,9 @@ exports.getOneMech = async (req, res) => {
     try {
         const { mechId} =req.params;
         const mech = await mechModel.findById(mechId);
-        if(mech.approved){
+        if(!mechId){
             return res.status(400).json({
-                message:"mechanic not approved"
+                message:"mechanic not found"
             })
         }
         res.status(200).json({

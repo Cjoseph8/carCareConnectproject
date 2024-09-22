@@ -46,7 +46,7 @@ router.post("/updateProfilepix", authenticate, uploadSingle, updatePicture);
 router.put('/updateUserProfile', authenticate, updateUserProfile)
 router.post("/signout", authenticate, signOut);
 
-router.get("/oneCustomer/:customerId", adminAuth, getOneCustomer);
+router.get("/oneCustomer/:customerId", authenticate, getOneCustomer);
 
 router.post("/makeAdmin", adminAuth, makeAdmin);
 router.get("/allCustomers", adminAuth, getAllCustomers);

@@ -1,6 +1,7 @@
 
 const customerModel =require('../models/customerModel');
 const mechModel = require('../models/mechModel')
+const Notification =require('../models/notificationModel')
 const jwt = require('jsonwebtoken')
 const bcrypt= require('bcryptjs')
 require('dotenv').config()
@@ -645,8 +646,8 @@ exports.updatePicture=async(req,res)=>{
 /// Admin controllers /// //////
 exports.approveMech = async (req, res) => {
     try {
-        const { mechId } = req.params; // Mechanic ID to approve or reject
-        const { action } = req.body;   // Action to take ('Approve' or 'Reject')
+        const { mechId } = req.params; 
+        const { action } = req.body;   
 
         // Validate input
         if (!mechId || !action || (action !== 'Approve' && action !== 'Reject')) {
@@ -668,6 +669,17 @@ exports.approveMech = async (req, res) => {
         mechanic.approved = action === 'Approve' ? 'Approved' : 'Reject';
 
         await mechanic.save();
+
+        // Create a notification for the mechanic
+        const notification = new Notification({
+            userId: mechanic._id, 
+            title: 'Application Status Update',
+            message: `Your application has been ${action.toLowerCase()}!`,
+            type: 'Status Update',
+            
+        });
+
+        await notification.save();
 
         res.status(200).json({
             message: `Mechanic ${action} successfully.`,

@@ -335,7 +335,9 @@ exports.getAllBooking = async(req,res)=>{
             notes: booking.notes,
             city: booking.city,
             year: booking.year,
-            status: booking.status
+            status: booking.status,
+            date: booking.date,
+            time: booking.time
         }));
 
         res.status(200).json({
@@ -407,7 +409,7 @@ exports.completeBooking = async (req, res) => {
         booking.status = 'Completed';
         await booking.save();
 
-        mech.wallet += booking.serviceCharge
+        // mech.wallet += booking.serviceCharge
         await mech.save()
 
         // Create a notification for the customer
