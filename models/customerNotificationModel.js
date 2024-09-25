@@ -1,11 +1,15 @@
-
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-    userId: {
+    customerId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Customer', 
-        required: true
+        
+    },
+    mechanicId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Mech', 
+        
     },
     title: {
         type: String,
@@ -30,6 +34,6 @@ const notificationSchema = new mongoose.Schema({
     }
 });
 
-const Notification = mongoose.model('Notification', notificationSchema);
+const customerNotificationModel = mongoose.model('customerNotificationModel', notificationSchema);
 
-module.exports = Notification;
+module.exports = customerNotificationModel;

@@ -26,21 +26,6 @@ const customerSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    // wallet: {
-    //     balance: { type: Number, default: 0.00 },
-    //     transactions: [{
-    //       type: new mongoose.Schema({
-    //         amount: { type: Number, required: true },
-    //         type: { 
-    //           type: String,
-    //           enum: ['credit', 'debit'],
-    //           required: true
-    //         },
-    //         date: { type: Date, default: Date.now },
-    //         description: { type: String }
-    //       }, { _id: false })
-    //     }]
-    //   }
     
   },
   { timestamps: true }

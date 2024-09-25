@@ -10,6 +10,9 @@ const {
   completeServiceAndProcessPayment,
   completeBooking,
   koraPayment,
+  markNotication,
+  get1MechAllNotifications,
+  getcustomerNotifications,
 } = require("../controller/bookingController");
 const {
   authenticate,
@@ -32,5 +35,10 @@ router.post("/rate/:bookingId", authenticate, rateMechanic);
 router.post("/complete-service-payment", authenticate, completeServiceAndProcessPayment);
 router.post('/work/payment/:bookingId', authenticate, koraPayment)
 
+router.get('/notification', authenticate, )
+router.get('/mechanics/notifications', authenticate, get1MechAllNotifications)
+router.get('/customers/notifications', authenticate, getcustomerNotifications)
+  
+router.patch('/markNotification/:notificationId', authenticate,  markNotication)
 
 module.exports = router;

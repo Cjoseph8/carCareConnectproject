@@ -1,80 +1,14 @@
 
 require('dotenv').config();
-const bookingModel =require('../models/bookingModel');
-const Notification=require('../models/notificationModel')
+const bookingModel = require('../models/bookingModel');
+const CustomerNotification = require('../models/customerNotificationModel');
+const MechanicNotification = require('../models/mechNotificationModel');
 const customerModel = require('../models/customerModel');
 const mechModel = require('../models/mechModel');
-const sendMailer = require("../middleware/sendMailer")
-const {generateBookingEmail} = require('../middleware/html')
+const sendMailer = require("../middleware/sendMailer");
+const { generateBookingEmail } = require('../middleware/html');
 
-        
-// Wallet  functions 
-// async function updateWallet(userId, isMechanic, amount, type, description) {
-//     try {
-//         const Model = isMechanic ? mechModel : customerModel;
-//         const walletUser = await Model.findById(userId);
-
-//         if (!walletUser) throw new Error('User not found');
-
-//         // Update the balance based on the transaction type
-//         if (type === 'credit') {
-//             walletUser.wallet += amount;
-//         } else if (type === 'debit') {
-//             if (walletUser.wallet < amount) throw new Error('Insufficient balance');
-//             walletUser.wallet -= amount;
-//         } else {
-//             throw new Error('Invalid transaction type');
-//         }
-//         // Log the transaction (optional)
-//         if (!walletUser.wallet.transactions) {
-//             walletUser.wallet.transactions = [];
-//         }
-//         walletUser.wallet.transactions.push({ amount, type, description });
-//         await walletUser.save();
-//     } catch (error) {
-//         console.error('Error updating wallet:', error);
-//         throw error;
-//     }
-// };
-// //cash back function
-// async function processCashback(mechanicId) {
-//     try {
-//         // Fetch the mechanic and their completed bookings
-//         const mechanic = await mechModel.findById(mechanicId);
-//         if (!mechanic) throw new Error('Mechanic not found');
-
-//         // Count the number of completed services
-//         const completedServicesCount = await bookingModel.countDocuments({
-//             mechanicId,
-//             status: 'Completed'
-//         });
-
-//         // Check if the mechanic is eligible for cashback
-//         if (completedServicesCount > 0 && completedServicesCount % 5 === 0) {
-//             const cashbackAmount = 10; // Define cashback amount
-
-//             // Credit the cashback to the mechanic's wallet
-//             mechanic.wallet += cashbackAmount;
-//             await mechanic.save();
-
-//             console.log(`Cashback of ${cashbackAmount} credited to mechanic ${mechanic.fullName}'s wallet.`);
-//             return {
-//                 message: `Cashback of ${cashbackAmount} credited successfully.`,
-//                 balance: mechanic.wallet
-//             };
-//         } else {
-//             return {
-//                 message: 'No cashback eligible at this time.',
-//                 completedServicesCount
-//             };
-//         }
-//     } catch (error) {
-//         console.error('Error processing cashback:', error);
-//         throw error;
-//     }
-// };
-
-
+// Function to book an appointment
 exports.bookAppointment = async (req, res) => {
     try {
         const customerId = req.user.userId;
@@ -97,10 +31,7 @@ exports.bookAppointment = async (req, res) => {
         const existingBooking = await bookingModel.findOne({
             customerId,
             mechanicId: mechId,
-            $or: [
-                { status: 'Accept' },
-                { status: 'Pending' }
-            ]
+            $or: [{ status: 'Accept' }, { status: 'Pending' }]
         });
 
         const now = new Date();
@@ -109,20 +40,14 @@ exports.bookAppointment = async (req, res) => {
             const bookingTime = new Date(existingBooking.createdAt);
             const timeDiff = (now - bookingTime) / (1000 * 60); // Time difference in minutes
 
-            if (existingBooking.status === 'Accept') {
-                // Allow booking only if 3 hours have passed
-                if (timeDiff < 180) {
-                    return res.status(400).json({
-                        message: 'You cannot book again until 3 hours have passed since your last accepted appointment. Please be patient.'
-                    });
-                }
-            } else if (existingBooking.status === 'Pending') {
-                // Allow booking only if 30 minutes have passed
-                if (timeDiff < 30) {
-                    return res.status(400).json({
-                        message: 'You cannot book again until 30 minutes have passed since your last pending appointment.'
-                    });
-                }
+            if (existingBooking.status === 'Accept' && timeDiff < 180) {
+                return res.status(400).json({
+                    message: 'You cannot book again until 3 hours have passed since your last accepted appointment. Please be patient.'
+                });
+            } else if (existingBooking.status === 'Pending' && timeDiff < 30) {
+                return res.status(400).json({
+                    message: 'You cannot book again until 30 minutes have passed since your last pending appointment.'
+                });
             }
         }
 
@@ -146,8 +71,8 @@ exports.bookAppointment = async (req, res) => {
         // Save the booking
         const savedBooking = await booking.save();
 
-        // Notify the mechanic
-        const verificationLink = "link to booking details"; 
+        // Notify the mechanic via email
+        const verificationLink = "https://car-care-g11.vercel.app/#/app/mech/booking"; 
         const emailSubject = 'New Booking Request';
         const html = generateBookingEmail(mech.fullName, verificationLink);
 
@@ -163,16 +88,18 @@ exports.bookAppointment = async (req, res) => {
         await sendMailer(mailOptions);
 
         // Create a notification for the mechanic
-        const notification = new Notification({
-            userId: mech._id,
+        const mechanicNotification = new MechanicNotification({
+            customerId: customer._id,
+            mechanicId: mech._id,
             title: 'New Booking Request',
             message: `You have a new booking request from ${customer.fullName} for ${service.join(', ')} service.`,
             type: 'Booking Request',
             read: false
         });
-        
-        await notification.save();
 
+        await mechanicNotification.save();
+
+        // Respond to the customer
         res.status(201).json({
             message: `You have successfully booked an appointment with ${savedBooking.mechName}. Please hold on for their response.`,
             data: savedBooking
@@ -184,6 +111,71 @@ exports.bookAppointment = async (req, res) => {
             message: 'An error occurred while booking the appointment.',
             error: error.message 
         });
+    }
+};
+
+
+exports.get1MechAllNotifications = async (req, res) => {
+    try {
+        const {userId} = req.user; // Get the mechanic ID from the authenticated request
+
+        // Find notifications for the mechanic
+        const notifications = await MechanicNotification.find({ mechanicId: userId }).sort({ createdAt: -1 }) || await CustomerNotification.find({ customerId: userId }).sort({ createdAt: -1 });
+        console.log('Number of notifications found:', notifications.length); // Log the count of notifications
+
+        if (!notifications || notifications.length === 0) {
+            return res.status(404).json({ message: 'No notifications found for this mechanic.' });
+        }
+        res.status(200).json({
+            message: 'Notifications retrieved successfully.',
+            data: notifications
+        });
+    } catch (error) {
+        console.error('Error retrieving mechanic notifications:', error);
+        res.status(500).json({ message: 'An error occurred while retrieving notifications.', error: error.message });
+    }
+};
+
+
+exports.getcustomerNotifications = async (req, res) => {
+    try {
+        const {userId} = req.user; // Assuming the user is authenticated as a mechanic
+        
+        const notifications = await CustomerNotification.find({ customerId:userId }).sort({ createdAt: -1 });
+
+        if (!notifications.length) {
+            return res.status(404).json({ message: 'No notifications found for this customer.' });
+        }
+
+        res.status(200).json({
+            message: 'Notifications retrieved successfully.',
+            data: notifications
+        });
+    } catch (error) {
+        console.error('Error retrieving notifications:', error);
+        res.status(500).json({ message: 'An error occurred while retrieving notifications.', error: error.message });
+    }
+};
+
+
+exports.markNotication= async (req, res) => {
+    try {
+        const { notificationId } = req.params;
+        let notification;
+        // Find the notification and update it
+         notification = await CustomerNotification.findByIdAndUpdate(notificationId, { read: true }, { new: true });
+         notification = await MechanicNotification.findByIdAndUpdate(notificationId, { read: true }, { new: true });
+        if (!notification) {
+            return res.status(404).json({ message: 'Notification not found.' });
+        }
+
+        res.status(200).json({
+            message: 'Notification marked as read.',
+            data: notification
+        });
+    } catch (error) {
+        console.error('Error marking notification as read:', error);
+        res.status(500).json({ message: 'An error occurred while marking the notification as read.', error: error.message });
     }
 };
 
@@ -279,13 +271,15 @@ exports.acceptOrReject = async (req, res) => {
         if (booking.status === 'Accept') {
             return res.status(404).json({ message: "Booking already accepted" });
         }
+        //send notification to customer
         let notification;
         if (action === 'Accept') {
             booking.status = 'Accept';
             const customer = await customerModel.findById(booking.customerId);
             if (customer) {
-                 notification = new Notification({
-                    userId: booking.customerId,
+                 notification = new CustomerNotification({
+                    customerId: booking.customerId,
+                    mechanicId:mechId,
                     title: 'Booking Accepted',
                     message: `${booking.mechName} has accepted your booking.`,
                     type: 'Booking Request',
@@ -337,7 +331,8 @@ exports.getAllBooking = async(req,res)=>{
             year: booking.year,
             status: booking.status,
             date: booking.date,
-            time: booking.time
+            time: booking.time,
+            location: booking.location
         }));
 
         res.status(200).json({
@@ -375,7 +370,10 @@ exports.getOneBooking = async(req,res)=>{
             notes: booking.note,
             city: booking.city,
             year: booking.year,
-            status: booking.status
+            status: booking.status,
+            date: booking.date,
+            time: booking.time,
+            location: booking.location
         }
 
         res.status(200).json({
@@ -413,8 +411,9 @@ exports.completeBooking = async (req, res) => {
         await mech.save()
 
         // Create a notification for the customer
-        const notification = new Notification({
-            userId: booking.customerId, 
+        const notification = new CustomerNotification({
+            customerId: booking.customerId,
+            mechanicId: booking.mechanicId,
             title: 'Booking Completed',
             message: `Your booking for ${booking.service}, has been completed. Your car is now ready for the road! Service charge: $${serviceCharge}.`,
             type: 'Booking Request',
@@ -550,4 +549,5 @@ exports.koraPayment = async (req, res) => {
         });
     }
 };
+
 

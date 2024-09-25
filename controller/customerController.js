@@ -1,7 +1,7 @@
 
 const customerModel =require('../models/customerModel');
 const mechModel = require('../models/mechModel')
-const Notification =require('../models/notificationModel')
+const Notification =require('../models/customerNotificationModel')
 const jwt = require('jsonwebtoken')
 const bcrypt= require('bcryptjs')
 require('dotenv').config()
@@ -109,7 +109,7 @@ exports.verifyEmail = async (req, res) => {
         // save the changes
         await createdUser.save();
 
-        res.json(200).json({
+        res.status(200).json({
             message:'successful',
             data:createdUser.position
         })
@@ -264,6 +264,12 @@ exports.forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
 
+        if (!email) {
+            return res.status(400).json({
+                message: "Email is required"
+            });
+        }
+
         // Check if the email exists in the customerModel first
         const user = await customerModel.findOne({ email: email.toLowerCase() }) || await mechModel.findOne({ email: email.toLowerCase() });
         
@@ -276,8 +282,8 @@ exports.forgotPassword = async (req, res) => {
         const resetToken = jwt.sign({ userId: user._id }, process.env.secret_key, { expiresIn: "30m" });
 
         // Send verification mail
-        const verificationLink = ""; // Add your link logic here
-        const emailSubject = 'Verification Mail';
+        const verificationLink = "https://car-care-g11.vercel.app/#/changePassword"; // Add your link logic here
+        const emailSubject = 'Reset password';
         const html = ForgetPasswordEmail(user.fullName, verificationLink);
 
         // Prepare mail options
