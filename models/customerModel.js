@@ -10,7 +10,7 @@ const customerSchema = new mongoose.Schema(
 
     position: { type: String, default: "customer" },
 
-    blackList: { type: Array, default: [] },
+    lastLogoutTime: { type: Date, default: null },
 
     password: { type: String, required: true },
 

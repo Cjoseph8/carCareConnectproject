@@ -39,10 +39,10 @@ const authenticate = async (req, res, next) => {
       req.user = { ...decodedToken, userType: "customer", user }; 
     }
 
-    // Check if the token is blacklisted
-    if (user.blackList && user.blackList.includes(token)) {
-      return res.status(400).json({
-        message: "User not logged in.",
+    // Check if the token's issued at (iat) time is before the lastLogoutTime
+    if (user.lastLogoutTime && decodedToken.iat * 1000 < new Date(user.lastLogoutTime).getTime()) {
+      return res.status(401).json({
+        message: "Token is no longer valid. Please log in again.",
       });
     }
 

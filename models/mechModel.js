@@ -22,10 +22,8 @@ const mechSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    blackList: {
-        type: [String],
-        default: []
-    },
+    lastLogoutTime: { type: Date, default: null },
+    
     businessName: {
         type: String
     },

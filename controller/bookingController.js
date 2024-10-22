@@ -192,7 +192,7 @@ exports.completeServiceAndProcessPayment = async (req, res) => {
         }
 
         // Ensure the service is completed
-        if (booking.statusCompleted !== 'Completed') {
+        if (booking.status !== 'Completed') {
             return res.status(400).json({
                 message: 'Service must be completed before processing payment.'
             });
@@ -205,26 +205,27 @@ exports.completeServiceAndProcessPayment = async (req, res) => {
             });
         }
 
-        // Calculate the admin fee
-        const adminFee = paymentAmount * 0.05; // 5% deduction
-        const mechanicPayment = paymentAmount - adminFee; // Amount to pay the mechanic
+        // Calculate the deductions and cashback
+        const adminFee = paymentAmount * 0.05; // 5% deduction for admin
+        const mechanicPayment = paymentAmount - adminFee; // 95% to the mechanic
+        const cashback = paymentAmount * 0.02; // 2% cashback for the customer
 
-        // Update wallets
+        // Update customer and mechanic wallets
         await updateWallet(customer._id, false, paymentAmount, 'debit', 'Payment for completed service');
         await updateWallet(booking.mechanicId, true, mechanicPayment, 'credit', 'Payment received for completed service');
         
-        // Update admin wallet directly from the customer model
+        // Deduct admin fee from customer wallet and update admin account
         await customerModel.findByIdAndUpdate(process.env.ADMIN_ACCOUNT_ID, {
-            $inc: { wallet: adminFee } // Increment admin's wallet by admin fee
+            $inc: { wallet: adminFee }
         });
 
-        // Call the cashback function
-        const cashbackResponse = await processCashback(booking.mechanicId);
+        // Apply cashback to customer's wallet
+        await updateWallet(customer._id, true, cashback, 'credit', 'Cashback for service payment');
 
         res.status(200).json({
-            message: 'Service completed, payment processed, and cashback applied if eligible.',
-            cashback: cashbackResponse,
-            data: booking
+            message: 'Service completed, payment processed, and cashback applied.',
+            data: booking,
+            cashback: cashback
         });
 
     } catch (error) {
@@ -233,6 +234,7 @@ exports.completeServiceAndProcessPayment = async (req, res) => {
         });
     }
 };
+
 
 
 

@@ -15,64 +15,77 @@ const fs = require('fs')
 //Creating the sign Up
 exports.signUpUser = async (req, res) => {
     try {
-        // Destructuring from req.body(dataBase)
+        // Destructuring from req.body (data from the request)
         const { fullName, email, password, phoneNumber } = req.body;
-        
+
+        // Check if the email already exists
         const existingEmail = await customerModel.findOne({ email });
         if (existingEmail) {
             return res.status(400).json({ message: 'User with this email already exists' });
         }
-        const existingnum = await customerModel.findOne({phoneNumber});
-        if(existingnum){
-            return res.status(400).json({message:'User with this PhoneNumber already exist.' })
+
+        // Check if the phone number already exists
+        const existingPhoneNumber = await customerModel.findOne({ phoneNumber });
+        if (existingPhoneNumber) {
+            return res.status(400).json({ message: 'User with this phone number already exists' });
         }
-// using bcrypt to salt and hash our 
+
+        // Hash the password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hashSync(password, salt);
 
-        // verify the fullname input
-        const splitName = fullName.split(" ")
-        const removeSpace = splitName.filter(space => space !== '')
-        const slicedName = removeSpace[0].charAt(0).toUpperCase() + removeSpace[0].slice(1).toLowerCase()
-        const slicedName2 = removeSpace[1].charAt(0).toUpperCase() + removeSpace[1].slice(1).toLowerCase()
+        // Format the full name
+        const splitName = fullName.split(" ");
+        const removeSpace = splitName.filter(space => space !== '');
+        const firstName = removeSpace[0].charAt(0).toUpperCase() + removeSpace[0].slice(1).toLowerCase();
+        const lastName = removeSpace[1]?.charAt(0).toUpperCase() + removeSpace[1]?.slice(1).toLowerCase(); // Handle the case where the user has only one name
 
-       // For users Requirement to fill
-        const user = new customerModel({
-            fullName:`${slicedName} ${slicedName2}`,
-            email:email.toLowerCase().trim(),
-            password: hashedPassword,
-            phoneNumber,
-    
-        });
-        // save the above
-        const createdUser = await user.save();
+        // Generate JWT token
+        const token = jwt.sign({ email: email.toLowerCase().trim(), userId: null }, process.env.secret_key, { expiresIn: "7d" });
 
-       //using jwt to sign in    ( user identity )                                    (Your secret)            (Duration )
-        const token = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "7d" });
-
-        // Send verification mail `${req.protocol}://${req.get("host")}/api/v1/users/verify/${token}`
-        const verificationLink =` https://car-care-g11.vercel.app/#/verifyEmail/${token}`;
+        // Generate the verification link
+        const verificationLink = `https://car-care-g11.vercel.app/#/verifyEmail/${token}`;
         const emailSubject = 'Verification Mail';
-        const html = generateWelcomeEmail(createdUser.fullName, verificationLink);
-        // using nodemailer to send mail to our user
+        const html = generateWelcomeEmail(`${firstName} ${lastName}`, verificationLink);
+
+        // Prepare mail options
         const mailOptions = {
             from: process.env.mailUser,
-            to: email, // Use the user's email address here
+            to: email.toLowerCase().trim(), // User email
             subject: emailSubject,
             html: html
         };
 
+        // Send verification email
         await sendMailer(mailOptions);
 
-        return res.status(200).json({ 
-            message: `Successfully created please check your email: ${ createdUser.email} and click the link below for verification`, 
-            createdUser, 
-            token });
+        // If all operations are successful, create the user
+        const user = new customerModel({
+            fullName: `${firstName} ${lastName}`,
+            email: email.toLowerCase().trim(),
+            password: hashedPassword,
+            phoneNumber
+        });
+
+        // Save the user to the database
+        const createdUser = await user.save();
+
+        // Update token with user ID after user creation
+        const updatedToken = jwt.sign({ email: createdUser.email, userId: createdUser._id }, process.env.secret_key, { expiresIn: "7d" });
+
+        return res.status(200).json({
+            message: `Successfully created. Please check your email: ${createdUser.email} and click the link for verification.`,
+            createdUser,
+            token: updatedToken
+        });
+
     } catch (error) {
-        
-        return res.status(500).json(error.message);
+        // Log the error and return a 500 status code with the error message
+        console.error("Error during user sign-up:", error);
+        return res.status(500).json({ message: "Internal server error: " + error.message });
     }
 };
+
 
 //create an end point to verify users email
 exports.verifyEmail = async (req, res) => {
@@ -434,15 +447,8 @@ exports.signOut = async (req, res) => {
             });
         }
 
-        // Check if the token is already blacklisted
-        if (user.blackList.includes(token)) {
-            return res.status(400).json({
-                message: 'user already logged out.',
-            });
-        }
-
-        // Add the token to the blacklist and save the user
-        user.blackList.push(token);
+        // Update the lastLogoutTime to the current time
+        user.lastLogoutTime = Date.now();
         await user.save();
 
         // Respond with success
