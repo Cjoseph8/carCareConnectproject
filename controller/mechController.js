@@ -1,6 +1,6 @@
 
 const mechModel = require('../models/mechModel');
-const jwt = require('jsonwebtoken')
+const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 require('dotenv').config()
 const sendMailer = require("../middleware/sendMailer")

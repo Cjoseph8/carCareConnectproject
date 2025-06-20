@@ -775,3 +775,72 @@ exports.makeAdmin = async (req, res) => {
     }
   };
   
+// Deposit
+exports.depositToWallet = async (req, res) => {
+  try {
+    const { customerId, amount } = req.body;
+
+    if (amount <= 0)
+      return res.status(400).json({ message: "Invalid deposit amount" });
+
+    const customer = await customerModel.findById(customerId);
+    if (!customer)
+      return res.status(404).json({ message: "Customer not found" });
+
+    // Ensure wallet exists
+    if (!customer.wallet) {
+      customer.wallet = {
+        balance: 0,
+        lastTransactionDate: null,
+      };
+    }
+
+    customer.wallet.balance += amount;
+    customer.wallet.lastTransactionDate = new Date();
+    await customer.save();
+
+    res
+      .status(200)
+      .json({
+        message: "Deposit successful",
+        balance: customer.wallet.balance,
+      });
+  } catch (error) {
+    console.error("Deposit Error:", error.message);
+    res
+      .status(500)
+      .json({ message: "Something went wrong", error: error.message });
+  }
+};
+  
+  
+  // Withdraw
+  exports.withdrawFromWallet = async (req, res) => {
+    const { customerId, amount } = req.body;
+  
+    if (amount <= 0) return res.status(400).json({ message: "Invalid withdrawal amount" });
+  
+    const customer = await customerModel.findById(customerId);
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+  
+    if (customer.wallet.balance < amount) {
+      return res.status(400).json({ message: "Insufficient balance" });
+    }
+  
+
+    customer.wallet.balance -= amount;
+    customer.wallet.lastTransactionDate = new Date();
+    await customer.save();
+  
+    res.status(200).json({ message: "Withdrawal successful", balance: customer.wallet.balance });
+  };
+  
+  // Check Balance
+  exports.getWalletBalance = async (req, res) => {
+    const { customerId } = req.body;
+  
+    const customer = await customerModel.findById(customerId);
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+  
+    res.status(200).json({balance: customer.wallet.balance });
+  };

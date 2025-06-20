@@ -18,15 +18,28 @@ const customerSchema = new mongoose.Schema(
       pictureId: String,
       pictureUrl: String,
     },
+
     isVerified: {
       type: Boolean,
       default: false,
     },
+
     isAdmin: {
       type: Boolean,
       default: false,
     },
-    
+
+    wallet: {
+      balance: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+      lastTransactionDate: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   { timestamps: true }
 );

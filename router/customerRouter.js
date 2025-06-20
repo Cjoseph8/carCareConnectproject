@@ -18,7 +18,10 @@ const {
   makeAdmin,
   approveMech,
   getAllApprovedMechs,
-  getOneApprovedMech
+  getOneApprovedMech,
+  depositToWallet,
+  withdrawFromWallet,
+  getWalletBalance,
 } = require("../controller/customerController");
 const { getAllMech, deleteMech }= require("../controller/mechController")
 const { authenticate, isAdmin } = require("../middleware/authenticate");
@@ -64,5 +67,10 @@ router.put('/mechanics/approve/:mechId', adminAuth, approveMech);
 router.get('/mechanics/approved', authenticate, getAllApprovedMechs);
 
 router.get('/mechanic/one/approved/:mechId', authenticate, getOneApprovedMech);
+
+router.post("/deposit", depositToWallet);
+router.post("/withdraw", withdrawFromWallet);
+router.get("/balance", getWalletBalance);
+
 
 module.exports = router;
